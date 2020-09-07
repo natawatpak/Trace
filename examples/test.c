@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "video/extract.h"
 
 static inline void safeFrame(AVCodecContext* cCtx, AVFrame* frame, int nframe, int framerate) {
     AVCodec*            enc = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
@@ -39,6 +40,7 @@ static inline void safeFrame(AVCodecContext* cCtx, AVFrame* frame, int nframe, i
 
 
 int main () {
+/*
     AVFormatContext* fCtx = NULL;
     char             error_buffer[256];
     unsigned int     i, vindex, r;
@@ -52,7 +54,7 @@ int main () {
     frame = av_frame_alloc();
     frameRGB = av_frame_alloc();
 
-    if ((r=avformat_open_input(&fCtx, "/home/grostaco/thing.webm", NULL, NULL)) != 0) {
+    if ((r=avformat_open_input(&fCtx, "/home/grostaco/thingg.mkv", NULL, NULL)) != 0) {
         av_strerror(r, error_buffer, 256);
         fprintf(stderr, "avformat_open_input: %s\n", error_buffer);
         return 1; 
@@ -62,7 +64,7 @@ int main () {
         fprintf(stderr, "avformat_find_stream_info: %s\n", error_buffer);
         return 1; 
     }
-    av_dump_format(fCtx, 0, "~/thing.webm", 0); 
+    av_dump_format(fCtx, 0, "~/thingg.mkv", 0); 
 
     AVRational avfps = av_guess_frame_rate(fCtx, *fCtx->streams, NULL);
     int        fps   = ceil((double)avfps.num/avfps.den);
@@ -74,6 +76,7 @@ int main () {
         fprintf(stderr, "Cannot find video stream\n");
         return 1;
     }
+    
     cCtx = avcodec_alloc_context3(NULL);
     avcodec_parameters_to_context(cCtx, fCtx->streams[vindex]->codecpar);
 
@@ -97,19 +100,25 @@ int main () {
         return 1; 
     }
 
-    nbytes = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, cCtx->width, cCtx->height, 1);
+
+    
+
+    nbytes = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, cCtx->width, cCtx->height, 16);
     buffer = malloc(nbytes);
+    av_image_fill_arrays(frameRGB->data, frameRGB->linesize, buffer, AV_PIX_FMT_YUV420P, cCtx->width, cCtx->height, 16);
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     avpicture_fill((AVPicture*) frameRGB, buffer, AV_PIX_FMT_YUV420P, cCtx->width, cCtx->height);
 #pragma GCC diagnostic pop
+
     i = 0;
     while (av_read_frame(fCtx, &packet) >= 0) {
         if ((unsigned)packet.stream_index == vindex) {
             avcodec_send_packet(cCtx, &packet);
             r = avcodec_receive_frame(cCtx, frame);
-            if (r == 0 && i % 15 == 0) {
-                
+            if (r == 0) {
+
                 static struct SwsContext* img_convert_ctx;
                 if (img_convert_ctx==NULL) {
                     img_convert_ctx = sws_getContext(cCtx->width, cCtx->height,
@@ -125,10 +134,13 @@ int main () {
                 }
                 
                 r = sws_scale(img_convert_ctx, (const unsigned char* const*)frame->data, frame->linesize, 0, cCtx->height, frameRGB->data, frameRGB->linesize);
-                
                 safeFrame(cCtx, frameRGB, i, fps);
+                
+                //avcodec_flush_buffers(cCtx);
+
             }
             i++;
         }
     }
 }
+*/

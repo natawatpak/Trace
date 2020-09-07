@@ -3,6 +3,6 @@
 
 #include <libavcodec/avcodec.h>
 
-char* extract_frames(AVCodecContext*);
+AVFrame* extract_frames(const char*);
 
 #endif
