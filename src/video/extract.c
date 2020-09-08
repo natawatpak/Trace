@@ -2,6 +2,7 @@
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
+#include <assert.h>
 
 #include "video/extract.h"
 
@@ -9,8 +10,7 @@
 #define DUMP_FORMAT 0
 #endif
 
-AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt) {
-    AVFormatContext* fCtx = NULL;
+AVFrame* extract_frames(AVFormatContext* fCtx, enum AVPixelFormat pixfmt) {
     AVCodecContext*  cCtx = NULL;
     AVCodec*         codec;
     AVFrame          *frame, *frameRGB, *frames;
@@ -18,14 +18,6 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt) {
     char             errorBuffer[256], *buffer;
     int              r;
     unsigned int     vindex, nbytes;
-
-    
-
-    if ((r = avformat_open_input(&fCtx, url, NULL, NULL)) < 0) {
-        av_strerror(r, errorBuffer, 256);
-        fprintf(stderr, "avformat_open_input: %s", errorBuffer);
-        return NULL; 
-    }
 
     if ((r = avformat_find_stream_info(fCtx, NULL)) != 0) {
         av_strerror(r, errorBuffer, 256);
@@ -92,13 +84,15 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt) {
             avcodec_send_packet(cCtx, &pkt);
             r = avcodec_receive_frame(cCtx, frame);
             if (r == 0) {
+                av_frame_ref(frameRGB, frame);
                 r = sws_scale(img_convert_ctx, (const unsigned char* const*)frame->data, frame->linesize, 0, cCtx->height, frameRGB->data, frameRGB->linesize);
-                *frames++ = *frameRGB;
+                *frames = *av_frame_clone(frameRGB);
+                av_frame_unref(frame); 
+                
             }
         }
     }
 
-    avformat_free_context(fCtx);
     avcodec_free_context(&cCtx);
     av_frame_free(&frame);
     av_frame_free(&frameRGB);
@@ -108,12 +102,13 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt) {
     return frame_base;
 }
 
-static inline void safeFrame(AVCodecContext* cCtx, AVFrame* frame, int nframe, int framerate) {
-    AVCodec*            enc = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+int saveFrame(AVCodecContext* cCtx, AVFrame* frame, enum AVCodecID codecID, const char* dst) {
+    AVCodec*            enc = avcodec_find_encoder(codecID);
     AVCodecContext*     c   = avcodec_alloc_context3(NULL);
-    AVPacket*           pkt = av_packet_alloc();
-    static char         buffer[64];
+    AVPacket*            pkt;
+    int                 r;
 
+    pkt = av_packet_alloc();
     c->bit_rate = cCtx->bit_rate;
     c->width = cCtx->width;
     c->height = cCtx->height;
@@ -125,15 +120,25 @@ static inline void safeFrame(AVCodecContext* cCtx, AVFrame* frame, int nframe, i
     frame->format=c->pix_fmt;
 
     avcodec_open2(c, enc, NULL);
-    av_init_packet(pkt);
-    avcodec_send_frame(c, frame);
-    avcodec_receive_packet(c, pkt);
-    sprintf(buffer, "Frames/f%d_%d.png", nframe/framerate, nframe%framerate);
-    FILE* fp = fopen(buffer, "w");
+
+    if ((r = avcodec_send_frame(c, frame)) < 0) {
+        return r;
+    }
+    if ((r = avcodec_receive_packet(c, pkt)) < 0) {
+        return r;
+    }
+    
+    FILE* fp = fopen(dst, "w");
+    if (fp == NULL) {
+        return errno;
+    }
+
     fwrite(pkt->data, 1, pkt->size, fp);
     fclose(fp);
-    
 
+    av_packet_free(&pkt);
     avcodec_close(c);
+    avcodec_free_context(&c);
+    return 0;
 }
 
