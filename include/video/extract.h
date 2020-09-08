@@ -3,6 +3,6 @@
 
 #include <libavcodec/avcodec.h>
 
-AVFrame* extract_frames(const char*, enum AVCodecID);
+AVFrame* extract_frames(const char*, enum AVPixelFormat);
 
 #endif
