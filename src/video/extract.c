@@ -9,7 +9,7 @@
 #define DUMP_FORMAT 0
 #endif
 
-AVFrame* extract_frames(const char* url) {
+AVFrame* extract_frames(const char* url, enum AVCodecID cid) {
     AVFormatContext* fCtx = NULL;
     AVCodecContext*  cCtx = NULL;
     AVCodec*         codec;
@@ -18,6 +18,8 @@ AVFrame* extract_frames(const char* url) {
     char             errorBuffer[256], *buffer;
     int              r;
     unsigned int     vindex, nbytes;
+
+    
 
     if ((r = avformat_open_input(&fCtx, url, NULL, NULL)) < 0) {
         av_strerror(r, errorBuffer, 256);
@@ -67,10 +69,10 @@ AVFrame* extract_frames(const char* url) {
         return NULL; 
     }
 
-    nbytes = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, cCtx->width, cCtx->height, 16);
+    nbytes = av_image_get_buffer_size(cid, cCtx->width, cCtx->height, 16);
     buffer = av_malloc(nbytes);
 
-    av_image_fill_arrays(frameRGB->data, frameRGB->linesize, (uint8_t*)buffer, AV_PIX_FMT_YUV420P, cCtx->width, cCtx->height, 16);
+    av_image_fill_arrays(frameRGB->data, frameRGB->linesize, (uint8_t*)buffer, cid, cCtx->width, cCtx->height, 16);
     
     frames = malloc(sizeof *frames * fps * fCtx->duration/AV_TIME_BASE);
     AVFrame* frame_base = frames;
@@ -80,7 +82,7 @@ AVFrame* extract_frames(const char* url) {
         img_convert_ctx =sws_getContext(cCtx->width, cCtx->height,
                        cCtx->pix_fmt,
                        cCtx->width, cCtx->height,
-                       AV_PIX_FMT_YUV420P,
+                       cid,
                        SWS_BICUBIC,
                        NULL, NULL, NULL);
     }
