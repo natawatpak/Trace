@@ -38,8 +38,6 @@ AVFrame* extract_frames(const char* url) {
     AVRational avfps = av_guess_frame_rate(fCtx, *fCtx->streams, NULL);
     int        fps   = ceil((double)avfps.num/avfps.den);
 
-    frames = malloc(fps * (fCtx->duration / AV_TIME_BASE));
-
     vindex = -1;
     for (vindex = 0 ; vindex < fCtx->nb_streams && fCtx->streams[vindex]->codecpar->codec_type!=AVMEDIA_TYPE_VIDEO ; ++vindex);
     if (vindex > fCtx->nb_streams || fCtx->streams[vindex]->codecpar->codec_type!=AVMEDIA_TYPE_VIDEO) {
@@ -74,7 +72,9 @@ AVFrame* extract_frames(const char* url) {
 
     av_image_fill_arrays(frameRGB->data, frameRGB->linesize, (uint8_t*)buffer, AV_PIX_FMT_YUV420P, cCtx->width, cCtx->height, 16);
     
+    frames = malloc(sizeof *frames * fps * fCtx->duration/AV_TIME_BASE);
     AVFrame* frame_base = frames;
+   
     static struct SwsContext* img_convert_ctx;
     if (img_convert_ctx == NULL) {
         img_convert_ctx =sws_getContext(cCtx->width, cCtx->height,
@@ -96,7 +96,42 @@ AVFrame* extract_frames(const char* url) {
         }
     }
 
+    avformat_free_context(fCtx);
     avcodec_free_context(&cCtx);
+    av_frame_free(&frame);
+    av_frame_free(&frameRGB);
+    av_free(buffer);
+    
 
     return frame_base;
 }
+
+static inline void safeFrame(AVCodecContext* cCtx, AVFrame* frame, int nframe, int framerate) {
+    AVCodec*            enc = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+    AVCodecContext*     c   = avcodec_alloc_context3(NULL);
+    AVPacket*           pkt = av_packet_alloc();
+    static char         buffer[64];
+
+    c->bit_rate = cCtx->bit_rate;
+    c->width = cCtx->width;
+    c->height = cCtx->height;
+    c->time_base= (AVRational){1,25};
+    c->pix_fmt = AV_PIX_FMT_YUVJ420P;
+
+    frame->width = cCtx->width;
+    frame->height = cCtx->height;
+    frame->format=c->pix_fmt;
+
+    avcodec_open2(c, enc, NULL);
+    av_init_packet(pkt);
+    avcodec_send_frame(c, frame);
+    avcodec_receive_packet(c, pkt);
+    sprintf(buffer, "Frames/f%d_%d.png", nframe/framerate, nframe%framerate);
+    FILE* fp = fopen(buffer, "w");
+    fwrite(pkt->data, 1, pkt->size, fp);
+    fclose(fp);
+    
+
+    avcodec_close(c);
+}
+
