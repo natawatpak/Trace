@@ -35,7 +35,7 @@ override CFLAGS+=-O2
 endif
 
 ifeq ($(SANITIZE),1)
-override CFLAGS+=-fsanitize=address -fsanitize=undefined
+override CFLAGS+=-fsanitize=address -fsanitize=undefined -ggdb3
 endif
 
 .PHONY: all run debug clean
