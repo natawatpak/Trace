@@ -10,14 +10,22 @@
 #define DUMP_FORMAT 0
 #endif
 
-AVFrame* extract_frames(AVFormatContext* fCtx, enum AVPixelFormat pixfmt) {
+AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* dst) {
+    (void)dst;
+    AVFormatContext* fCtx;
     AVCodecContext*  cCtx = NULL;
     AVCodec*         codec;
     AVFrame          *frame, *frameRGB, *frames;
     AVPacket         pkt;
-    char             errorBuffer[256], *buffer;
+    char             errorBuffer[256], *buffer, nBuffer[64];
     int              r;
     unsigned int     vindex, nbytes;
+
+    if ((r = avformat_open_input(&fCtx, url, NULL, NULL)) < 0) {
+        av_strerror(r, errorBuffer, 256);
+        fprintf(stderr, "avformat_open_input: %s", errorBuffer);
+        return NULL; 
+    }
 
     if ((r = avformat_find_stream_info(fCtx, NULL)) != 0) {
         av_strerror(r, errorBuffer, 256);
@@ -78,17 +86,19 @@ AVFrame* extract_frames(AVFormatContext* fCtx, enum AVPixelFormat pixfmt) {
                        SWS_BICUBIC,
                        NULL, NULL, NULL);
     }
-
+    int i = 0;
     while (av_read_frame(fCtx, &pkt) >= 0) {
         if ((unsigned)pkt.stream_index == vindex) {
             avcodec_send_packet(cCtx, &pkt);
             r = avcodec_receive_frame(cCtx, frame);
             if (r == 0) {
-                av_frame_ref(frameRGB, frame);
+                //av_frame_ref(frameRGB, frame);
                 r = sws_scale(img_convert_ctx, (const unsigned char* const*)frame->data, frame->linesize, 0, cCtx->height, frameRGB->data, frameRGB->linesize);
-                *frames = *av_frame_clone(frameRGB);
-                av_frame_unref(frame); 
-                
+                snprintf(nBuffer, 64, dst, i / fps, i % fps);
+                saveFrame(cCtx, frameRGB, AV_CODEC_ID_MJPEG, nBuffer);
+                //av_frame_unref(frame); 
+                //av_frame_unref(frameRGB);
+                i++;
             }
         }
     }
