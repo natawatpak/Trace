@@ -4,7 +4,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
-AVFrame* extract_frames(AVFormatContext*, enum AVPixelFormat);
+AVFrame* extract_frames(const char*, enum AVPixelFormat, const char*);
 int      saveFrame(AVCodecContext*, AVFrame*, enum AVCodecID, const char*);
 
 #endif
