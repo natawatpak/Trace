@@ -4,23 +4,26 @@
 #include <libswscale/swscale.h>
 #include <assert.h>
 
+#include "cleanup.h"
 #include "video/extract.h"
+#include "image/imageutil.h"
 
 #ifndef DUMP_FORMAT 
 #define DUMP_FORMAT 0
 #endif
 
-AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* dst) {
-    (void)dst;
+AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* dst, AVCodecContext* c) {
+    (void)c;
     AVFormatContext* fCtx;
     AVCodecContext*  cCtx = NULL;
     AVCodec*         codec;
-    AVFrame          *frame, *frameRGB, *frames;
+    AVFrame          *frame, *frameRGB;
     AVPacket         pkt;
     char             errorBuffer[256], *buffer, nBuffer[64];
     int              r;
     unsigned int     vindex, nbytes;
 
+    fCtx = avformat_alloc_context();
     if ((r = avformat_open_input(&fCtx, url, NULL, NULL)) < 0) {
         av_strerror(r, errorBuffer, 256);
         fprintf(stderr, "avformat_open_input: %s", errorBuffer);
@@ -47,7 +50,9 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* 
         return NULL;
     }
 
-    cCtx = avcodec_alloc_context3(NULL);
+    if (c != NULL) {
+        cCtx = c;
+    }
     avcodec_parameters_to_context(cCtx, fCtx->streams[vindex]->codecpar);
 
     if ((codec = avcodec_find_decoder(cCtx->codec_id)) == NULL) {
@@ -74,9 +79,6 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* 
 
     av_image_fill_arrays(frameRGB->data, frameRGB->linesize, (uint8_t*)buffer, pixfmt, cCtx->width, cCtx->height, 16);
     
-    frames = malloc(sizeof *frames * fps * fCtx->duration/AV_TIME_BASE);
-    AVFrame* frame_base = frames;
-   
     static struct SwsContext* img_convert_ctx;
     if (img_convert_ctx == NULL) {
         img_convert_ctx =sws_getContext(cCtx->width, cCtx->height,
@@ -92,24 +94,29 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* 
             avcodec_send_packet(cCtx, &pkt);
             r = avcodec_receive_frame(cCtx, frame);
             if (r == 0) {
-                //av_frame_ref(frameRGB, frame);
+                
                 r = sws_scale(img_convert_ctx, (const unsigned char* const*)frame->data, frame->linesize, 0, cCtx->height, frameRGB->data, frameRGB->linesize);
                 snprintf(nBuffer, 64, dst, i / fps, i % fps);
                 saveFrame(cCtx, frameRGB, AV_CODEC_ID_MJPEG, nBuffer);
-                //av_frame_unref(frame); 
-                //av_frame_unref(frameRGB);
+                
                 i++;
+#ifdef FIRST_FRAME_ONLY
+                break;
+#endif
             }
         }
     }
 
-    avcodec_free_context(&cCtx);
+    avformat_free_context(fCtx);
+    if (c == NULL) {
+        avcodec_free_context(&cCtx);
+    }
     av_frame_free(&frame);
     av_frame_free(&frameRGB);
     av_free(buffer);
     
 
-    return frame_base;
+    return NULL;
 }
 
 int saveFrame(AVCodecContext* cCtx, AVFrame* frame, enum AVCodecID codecID, const char* dst) {
@@ -140,6 +147,8 @@ int saveFrame(AVCodecContext* cCtx, AVFrame* frame, enum AVCodecID codecID, cons
     
     FILE* fp = fopen(dst, "w");
     if (fp == NULL) {
+        perror("fopen");
+        
         return errno;
     }
 
