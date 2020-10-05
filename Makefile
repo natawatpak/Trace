@@ -50,7 +50,7 @@ deploy :
 	@mkdir -p $(BINDIR)
 
 run : $(BIN)
-	$(BIN)
+	$(BIN) $(ARGS)
 
 dump : $(BIN)
 	objdump -Mintel -d $(BIN) > dump.txt
