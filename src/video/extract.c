@@ -26,15 +26,17 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* 
     fCtx = avformat_alloc_context();
     if ((r = avformat_open_input(&fCtx, url, NULL, NULL)) < 0) {
         av_strerror(r, errorBuffer, 256);
-        fprintf(stderr, "avformat_open_input: %s", errorBuffer);
+        fprintf(stderr, "avformat_open_input: %s\n", errorBuffer);
         return NULL; 
     }
 
     if ((r = avformat_find_stream_info(fCtx, NULL)) != 0) {
         av_strerror(r, errorBuffer, 256);
-        fprintf(stderr, "avformat_find_stream_info: %s", errorBuffer);
+        fprintf(stderr, "avformat_find_stream_info: %s\n", errorBuffer);
         return NULL; 
     }
+
+
 
 #if DUMP_FORMAT
     av_dump_format(fCtx, 0, url, 0);
@@ -50,10 +52,16 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* 
         return NULL;
     }
 
+
+
     if (c != NULL) {
         cCtx = c;
+    } else {
+        cCtx = avcodec_alloc_context3(NULL);
     }
+
     avcodec_parameters_to_context(cCtx, fCtx->streams[vindex]->codecpar);
+
 
     if ((codec = avcodec_find_decoder(cCtx->codec_id)) == NULL) {
         fprintf(stderr, "Cannot find decoder for codec id: %d\n", cCtx->codec_id);
@@ -65,6 +73,8 @@ AVFrame* extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* 
         fprintf(stderr, "avcodec_open2: %s\n", errorBuffer);
         return NULL; 
     }
+
+
 
     frame = av_frame_alloc();
     frameRGB = av_frame_alloc();
