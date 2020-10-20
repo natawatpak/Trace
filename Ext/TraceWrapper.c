@@ -15,7 +15,8 @@ static PyObject* method_frame_extract(PyObject* self, PyObject* args) {
 }
 
 static PyMethodDef TraceMethods[] = {
-    {"extract_frame", method_frame_extract, METH_VARARGS, "Trace backend for frame extraction"},
+    {"extract_frame", method_frame_extract, METH_VARARGS, 
+     "extract_frame(source, dest_fmt) -> integer\n\nExtract frames from the source argument into destination in the given format\nThe first %d will be the seconds into the video, the second %d will be the current frame in said second"},
     {NULL, NULL, 0, NULL}
 };
 
