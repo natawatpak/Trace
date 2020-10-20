@@ -58,7 +58,7 @@ int main (int argc, char** argv) {
         }
         char* btmp = infile + strlen(infile) - 1;
         while (*btmp != '/')btmp--;
-        snprintf(outfile, 128, "Frames%s@f%%d-%%d", btmp);
+        snprintf(outfile, 128, "Frames%s@f%%d-%%d.png", btmp);
     }
 
     AVCodecContext* cCtx = avcodec_alloc_context3(NULL);
