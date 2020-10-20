@@ -1,6 +1,7 @@
 CC                   := gcc
 CXX                  := g++
 ASM                  := nasm
+PY                   := python3
 
 CSTD                 := 99
 DEBUG                := 0
@@ -9,11 +10,12 @@ override CFLAGS      += -Wall -Werror -Wextra -Wparentheses -Wmissing-declaratio
 override CFLAGS      += -Wmissing-field-initializers -Wmissing-prototypes -Wswitch-enum
 override CFLAGS      += -Wredundant-decls -Wshadow -Wswitch-default -Wuninitialized
 override CFLAGS      += -fstrength-reduce -fomit-frame-pointer -finline-functions 
+override CFLAGS      += -I/usr/include/python3.8
 override CXXFLAGS    := -Wall -Wextra -Wpedantic $(CXXFLAGS)
-override ASMFLAGS    := -felf64 -g $(ASMFLAGS)
+override ASMFLAGS    := -felf64 -g $(ASMFLAGS) 
 override LDFLAGS     := -lavformat -lavutil -lavcodec -lswscale -lm $(LDFLAGS)
 
-DUMMY                := examples/test.c
+DUMMY               := examples/test.c
 DEBUG                := 1
 DUMMYOBJ             := $(patsubst examples/%,object/%.o, $(basename $(DUMMY)))
 DEPS                 := $(wildcard object/*.d)
@@ -64,6 +66,9 @@ clean :
 	rm -rf Frames/*
 	rm -rf $(shell find object/ -name "*.o")
 	rm -rf $(shell find object/ -name "*.d")
+
+module_install :
+	sudo $(PY) setup.py install --force
 
 $(BIN) : $(OBJECTS) $(DUMMYOBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
