@@ -17,7 +17,7 @@ int main (int argc, char** argv) {
         {"in",      required_argument, 0, 'i'},
         {"out",     required_argument, 0, 'o'},
     };
-
+    
     while ((c=getopt_long(argc, argv, "hi:o:", long_options, &option_index)) != -1) {
         switch(c) {
             case 'h' :
@@ -65,5 +65,6 @@ int main (int argc, char** argv) {
 
     extract_frames(infile, AV_PIX_FMT_YUV420P, outfile, cCtx);
     free(outfile);
+    exit(0);
 }
 
