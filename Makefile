@@ -9,7 +9,7 @@ override CFLAGS      := -Wall -Wextra -std=gnu$(CSTD) -Iinclude $(CFLAGS)
 override CFLAGS      += -Wall -Werror -Wextra -Wparentheses -Wmissing-declarations -Wunreachable-code -Wunused 
 override CFLAGS      += -Wmissing-field-initializers -Wmissing-prototypes -Wswitch-enum
 override CFLAGS      += -Wredundant-decls -Wshadow -Wswitch-default -Wuninitialized
-override CFLAGS      += -fstrength-reduce -fomit-frame-pointer -finline-functions 
+override CFLAGS      += -fstrength-reduce -finline-functions -fno-omit-frame-pointer 
 override CFLAGS      += -I/usr/include/python3.8
 override CXXFLAGS    := -Wall -Wextra -Wpedantic $(CXXFLAGS)
 override ASMFLAGS    := -felf64 -g $(ASMFLAGS) 

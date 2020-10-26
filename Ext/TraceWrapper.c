@@ -1,15 +1,41 @@
 #include <Python.h>
+#include <sys/stat.h>
 #include "video/extract.h"
 
 static PyObject* method_frame_extract(PyObject* self, PyObject* args) {
-    (void)self;
+    static char buffer[128];
     char *url, *dst;
+    int  r;
 
-    if (PyArg_ParseTuple(args, "ss", &url, &dst) == 0) {
+    if (PyArg_ParseTuple(args, "ss|i", &url, &dst) == 0) {
         return NULL;
     }
 
-    (void)extract_frames(url, AV_PIX_FMT_YUV420P, dst, NULL);
+    struct stat stb;
+
+    if (stat(url, &stb) == -1) {
+        return PyErr_Format(PyExc_FileNotFoundError, "source file '%s' does not exist", url);
+    }
+
+    char* eod = dst;
+    while (*eod!='/' && *eod)eod++;
+    bcopy(dst, buffer, eod-dst);
+    buffer[eod-dst]='\0'; 
+
+
+    if (stat(buffer, &stb) == -1) {
+        return PyErr_Format(PyExc_FileNotFoundError, "destination folder '%s' does not exist", buffer);
+    }
+    if (!S_ISDIR(stb.st_mode)) {
+        return PyErr_Format(PyExc_NotADirectoryError, "destination directory '%s' is not a directory", buffer);  
+    }
+
+    
+
+    if ((r=extract_frames(url, AV_PIX_FMT_YUV420P, dst, NULL)) < 0) {
+        av_strerror(r, buffer, 128);
+        return PyErr_Format(PyExc_RuntimeError, "%s", buffer);
+    }
 
     return PyLong_FromLong(0);
 }
