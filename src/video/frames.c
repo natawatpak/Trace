@@ -13,78 +13,110 @@
  The OOP nature of this code is heavily inspired by glibc FILE 
 */
 
-extern int __frame_skip_internal(__frame_frameobject* self, int to_skip);
-extern int __frame_deallocate_internal(__frame_frameobject* self);
-extern int __frame_extract_internal(__frame_frameobject*, enum AVPixelFormat, struct __frame_extract_opt);
+#ifdef  FRAME_SILENT_AVERROR
+#define fprintf(...)
+#endif
 
-#ifndef _FRAME_NO_USE_GLOBAL_BUFFER
+#ifdef USE_FRAME_GLOBAL_ERROR_BUFFER
 #define error_buf_len 128
 static char error_buf[error_buf_len];
 #else
-#error "local error buffers not supported (yet)"
+#define error_buf self->_err_buf
 #endif
 
-#define VIDEO_INDEX(fmtCtx, vindex) ({ \
-    for (vindex = 0 ; vindex < fCtx->nb_streams && fCtx->streams[vindex]->codecpar->codec_type!=AVMEDIA_TYPE_VIDEO ; ++vindex); \
-    vindex;                            \
-})
+// glibc's from libc-symbols.h
+#define weak_alias(name, aliasname) _weak_alias(name, aliasname)
+#define _weak_alias(name, aliasname)      \
+    extern __typeof__(name) aliasname     \
+    __attribute__((weak, alias(#name)))   \
+    __attribute_copy__(name)                                      
 
-#define FRAME_COND_NOT(cond) !(cond)
-#define FRAME_COND_LE_ARBI(n) < n
-#define FRAME_COND_GE_ARBI(n) > n
-#define FRAME_COND_EQ_ARBI(n) == n
-#define FRAME_COND_GT_OR_EQ_ARBI(n) >= n
-#define FRAME_COND_LE_OR_EQ_ARBI(n) <= n
-#define FRAME_COND_NEQ_ARBI(n)      != n
-#define FRAME_COND_LE_ZERO FRAME_COND_LE_ARBI(0)
-#define FRAME_COND_GE_ZERO FRAME_COND_GE_ARBI(0)
-#define FRAME_COND_EQ_ZERO FRAME_COND_EQ_ARBI(0)
-#define FRAME_COND_GT_OR_EQ_ZERO FRAME_COND_GT_OR_EQ_ARBI(0)
-#define FRAME_COND_LE_OR_EQ_ZERO FRAME_COND_LE_OR_EQ_ARBI(0)
-#define FRAME_COND_NEQ_ZERO      FRAME_COND_NEQ_ARBI(0)
+#define attribute_hidden __attribute__((visibility("hidden")))
 
-#define FRAME_HASFLAG(n,f) ((n & f) == f)
+extern __frame_frameobject* _frame_open(char*) attribute_hidden;
+extern int                  _frame_extract(__frame_frameobject*, enum AVPixelFormat, ...) attribute_hidden;
+extern int                  _frame_error(__frame_frameobject*) attribute_hidden;
+extern size_t               _frame_skip(__frame_frameobject*, size_t) attribute_hidden;
+extern int                  _frame_close(__frame_frameobject*) attribute_hidden;
 
-#define FRAME_ENDARG NULL
-
-
-
-
-#define FRAMEAV_EXPLAIN(func, rcond, buf, buflen, ...) ({ \
-    int r;                                                \
-    if ((r = func(__VA_ARGS__)) rcond) {                  \
-        av_strerror(r, buf, buflen);                      \
-        printf("%s: %s\n", #func, buf);                   \
-    }                                                     \
-    r rcond;                                              \
-})
-
-
-__frame_frameobject* frame_open(char* file) {
-    struct __frame_frameobject_plus* fop = calloc(1, sizeof *fop);
+__frame_frameobject* _frame_open(char *file) {
+    struct __frame_frameobject_plus *fop = calloc(1, sizeof *fop);
     fop->vtable = calloc(1, sizeof *fop->vtable);
-    _FRAME_JUMPS(fop)->__extract    = __frame_extract_internal;
-    _FRAME_JUMPS(fop)->__skip       = (void*)0x69; (void)__frame_skip_internal;
-    _FRAME_JUMPS(fop)->__deallocate = __frame_deallocate_internal;
+    _FRAME_JUMPS(fop)->__extract    = frame_extract;
+    _FRAME_JUMPS(fop)->__skip       = frame_skip;
+    _FRAME_JUMPS(fop)->__error      = frame_error;
+    _FRAME_JUMPS(fop)->__close      = frame_close;
 
     struct __frame_frameobject* self = (struct __frame_frameobject*)fop;
-    self->fCtx = avformat_alloc_context();
-    self->cCtx = avcodec_alloc_context3(NULL);
+    self->_fCtx = avformat_alloc_context();
+    self->_cCtx = avcodec_alloc_context3(NULL);
+    self->_frame = av_frame_alloc();
+    self->_frameRGB = av_frame_alloc();
 
-    if (FRAMEAV_EXPLAIN(avformat_open_input, FRAME_COND_LE_ZERO, error_buf, 128, &self->fCtx, file, NULL, NULL)) {
+
+    if ((self->_errnum = avformat_open_input(&self->_fCtx, file, NULL, NULL)) < 0) {
+        av_strerror(self->_errnum, error_buf, error_buf_len);
+        fprintf(stderr, "avformat_open_input: %s", error_buf);
         return NULL;
     }
-    if (FRAMEAV_EXPLAIN(avformat_find_stream_info, FRAME_COND_NEQ_ZERO, error_buf, error_buf_len, self->fCtx, NULL)) {
+
+    if ((self->_errnum = avformat_find_stream_info(self->_fCtx, NULL)) < 0) {
+        av_strerror(self->_errnum, error_buf, error_buf_len);
+        fprintf(stderr, "avformat_find_stream_info: %s", error_buf);
         return NULL;
     }
+
+    for (self->_video_index = 0 ; (unsigned)self->_video_index < self->_fCtx->nb_streams && self->_fCtx->streams[self->_video_index] == AVMEDIA_TYPE_VIDEO ; ++self->_video_index);
+    if (self->_fCtx->streams[self->_video_index] != AVMEDIA_TYPE_VIDEO) {
+        snprintf(error_buf, 128, "__frame_extract_internal: cannot find video index for media");
+        return NULL;
+    }
+
+    if ((self->_errnum = avcodec_parameters_to_context(self->_cCtx, self->_fCtx->streams[self->_video_index]->codecpar)) < 0) {
+        av_strerror(self->_errnum, error_buf, error_buf_len);
+        fprintf(stderr, "avcodec_parameters_to_context: %s", error_buf);
+        return NULL;
+    }
+
+    if ((self->_codec = avcodec_find_decoder(self->_cCtx->codec_id)) == NULL) {
+        fprintf(stderr, "avcodec_find_decoder: cannot find decoder for codec_id %d\n", self->_cCtx->codec_id);
+        return NULL;  
+    }
+
+    if ((self->_errnum = avcodec_open2(self->_cCtx, self->_codec, NULL)) < 0) {
+        av_strerror(self->_errnum, error_buf, error_buf_len);
+        fprintf(stderr, "avcodec_open2: %s", error_buf);
+        return NULL; 
+    }
+
+    self->_frame_rate = av_guess_frame_rate(self->_fCtx, self->_fCtx->streams[self->_video_index], NULL);
+    self->_nbytes = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, self->_cCtx->width, self->_cCtx->height, 16);
+    self->_underlying_buf = av_malloc(self->_nbytes);
+
+    av_image_fill_arrays(self->_frameRGB->data, self->_frameRGB->linesize, (uint8_t*)self->_underlying_buf, AV_PIX_FMT_YUV420P, self->_cCtx->width, self->_cCtx->height, 16);
+    self->_img_convert_ctx = sws_getContext(self->_cCtx->width, self->_cCtx->height,
+                                            self->_cCtx->pix_fmt,
+                                            self->_cCtx->width, self->_cCtx->height,
+                                            self->_cCtx->pix_fmt, 
+                                            SWS_BICUBIC,
+                                            NULL, NULL, NULL);
 
     return self;
 }
+weak_alias(_frame_open, frame_open);
 
-int frame_extract(__frame_frameobject* self, enum AVPixelFormat pixfmt, ...) {
+struct __frame_extract_opt {
+    uint64_t bulksave:1;
+    uint64_t nosave:1; 
+    char*    format;
+    int      nframes_requested;
+};
+
+int _frame_extract(__frame_frameobject* self, enum AVPixelFormat pixfmt, ...) {
     static void* dispatch_table[] = {&&flag_endarg, &&flag_nsave, &&flag_bulksave, &&flag_nosave};
     #define DISPATCH() goto *dispatch_table[va_arg(ap, int)]
     struct __frame_extract_opt extopt = {0};
+    extopt.nframes_requested=1; // at least 1 frame
     va_list ap;
     
     va_start(ap, pixfmt);
@@ -103,26 +135,37 @@ int frame_extract(__frame_frameobject* self, enum AVPixelFormat pixfmt, ...) {
 
     va_end(ap);
 
-    _FRAME_EXTRACT(self, pixfmt, extopt);
+    // if FRAME_NOSAVE were passed with other save options, it will be ignored
+    if (extopt.nosave && extopt.bulksave) {
+        extopt.nosave=0;
+    }else if (extopt.nosave && extopt.nframes_requested) {
+        extopt.nosave=0;
+    }
 
-    return -1;
-}
-
-int __frame_skip_internal(__frame_frameobject* self, int to_skip) {
-    (void)self;
-    (void)to_skip;
-    return 0;
-}
-
-int __frame_deallocate_internal(__frame_frameobject* self) {
-    (void)self;
-    return 0;
-}
-
-int __frame_extract_internal(__frame_frameobject* self, enum AVPixelFormat pixfmt, struct __frame_extract_opt extopt) {
     
+
     return 0;
 }
+weak_alias(_frame_extract, frame_extract);
+
+int _frame_error(__frame_frameobject* self) {
+    return self->_errnum;
+}
+
+weak_alias(_frame_error, frame_error);
+
+size_t _frame_skip(__frame_frameobject* self, size_t nframes) {
+    (void)self;
+    (void)nframes;
+    return 0;
+}
+weak_alias(_frame_skip, frame_skip);
+
+int _frame_close(__frame_frameobject* self) {
+    (void)self;
+    return 0;
+}
+weak_alias(_frame_close, frame_close);
 
 /*
 static int __frame_extract_frames(const char* url, enum AVPixelFormat pixfmt, const char* dst, AVCodecContext* c) {
