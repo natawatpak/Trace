@@ -1,4 +1,4 @@
-#include "video/extract.h"
+#include "video/frames.h"
 #include "image/imageutil.h"
 
 #include <sys/stat.h>
@@ -11,14 +11,16 @@ int main (int argc, char** argv) {
 
     char* infile  = NULL;
     char* outfile = NULL;
+    int   nframes = 0;
 
     struct option long_options[] = {
         {"help",    no_argument,       0, 'h'},
         {"in",      required_argument, 0, 'i'},
         {"out",     required_argument, 0, 'o'},
+        {"nframes", required_argument, 0, 'n'},
     };
     
-    while ((c=getopt_long(argc, argv, "hi:o:", long_options, &option_index)) != -1) {
+    while ((c=getopt_long(argc, argv, "hi:o:n:", long_options, &option_index)) != -1) {
         switch(c) {
             case 'h' :
                 printf("""Usage: %s [-h]\
@@ -33,6 +35,9 @@ int main (int argc, char** argv) {
                 break;
             case 'o' :
                 outfile = optarg;
+                break;
+            case 'n' :
+                nframes = strtol(optarg, NULL, 10);
                 break;
             case '?' :
                 printf("?");
@@ -50,6 +55,12 @@ int main (int argc, char** argv) {
         infile = argv[optind];
     }
 
+    frameobject* fobject = frame_open(infile);
+    
+    if (nframes == 0) {
+        nframes = 60;
+    }
+
     if (outfile == NULL) {
         outfile = malloc(128);
         struct stat st;
@@ -61,10 +72,8 @@ int main (int argc, char** argv) {
         snprintf(outfile, 128, "Frames%s@f%%d-%%d.png", btmp);
     }
 
-    AVCodecContext* cCtx = avcodec_alloc_context3(NULL);
-
-    extract_frames(infile, AV_PIX_FMT_YUV420P, outfile, cCtx);
-    free(outfile);
+    frame_extract(fobject, AV_PIX_FMT_YUV420P, AV_CODEC_ID_MJPEG, outfile, FRAME_SEPSAVE, FRAME_NSAVE, nframes, FRAME_ENDARG);
+    
     exit(0);
 }
 
