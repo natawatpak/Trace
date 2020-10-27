@@ -1,6 +1,22 @@
 #include <Python.h>
 #include <sys/stat.h>
-#include "video/extract.h"
+#include "video/frames.h"
+
+static PyObject* method_frame_open(PyObject* self, PyObject* args) {
+    if (PyArg_ParseTuple(self, )) 
+}
+
+static PyObject* method_frame_skip(PyObject* self, PyObject* args) {
+
+}
+
+static PyObject* method_frame_extract(PyObject* self, PyObject* args) {
+
+}
+
+static PyObject* method_frame_close(PyObject* self, PyObject* args) {
+
+}
 
 static PyObject* method_frame_extract(PyObject* self, PyObject* args) {
     static char buffer[128];
