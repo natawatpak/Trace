@@ -13,8 +13,8 @@
 #define FRAME_ENDARG   0x0
 #define FRAME_NSAVE    0x1
 #define FRAME_BULKSAVE 0x2
-#define FRAME_NOSAVE   0x3
-#define FRAME_NOBUFFER 0x4
+#define FRAME_SEPSAVE  0x3
+#define FRAME_SKIP     0x4 
 
 typedef struct __frame_frameobject {
     AVFormatContext    *_fCtx;
@@ -27,7 +27,8 @@ typedef struct __frame_frameobject {
     int                _errnum;
     int                _nbytes;
     char               *_underlying_buf;
-#ifndef USE_RAME_GLOBAL_ERROR_BUFFER
+    int                _cframe;
+#ifndef USE_FRAME_GLOBAL_ERROR_BUFFER
 #define error_buf_len 128
     char               _err_buf[error_buf_len];
 #endif
@@ -43,8 +44,8 @@ typedef struct __frame_frameobject {
 #define JUMP0(self, method)       ((_FRAME_JUMPS(self))->method(self))
 #define JUMPN(self, method, ...)  ((_FRAME_JUMPS(self)->method)(self, __VA_ARGS__))
 
-typedef int (*__frame_extract)(struct __frame_frameobject*, enum AVPixelFormat, ...);
-#define _FRAME_EXTRACT(self, pixfmt, frameopt) JUMPN(self, __extract, pixfmt, frameopt)
+typedef int (*__frame_extract)(struct __frame_frameobject*, enum AVPixelFormat, enum AVCodecID, char*, ...);
+#define _FRAME_EXTRACT(self, pixfmt, dstid, format, ...) JUMPN(self, __extract, pixfmt, dstid, format, __VA_ARGS__)
 
 typedef size_t (*__frame_skip)(struct __frame_frameobject*, size_t);
 #define _FRAME_SKIP(self, n) JUMPN(self, __skip, n)
@@ -72,7 +73,8 @@ struct __frame_frameobject_plus {
 typedef struct __frame_frameobject frameobject;
 
 extern frameobject*                frame_open(char* __filename) ;
-extern int                         frame_extract(frameobject* __frameobject, enum AVPixelFormat __pixfmt, ...);
+extern int                         frame_save(AVCodecContext*, AVFrame*, enum AVCodecID, const char*);
+extern int                         frame_extract(frameobject* __frameobject, enum AVPixelFormat __pixfmt, enum AVCodecID __dstfmtid, char* __dstfmt, ...);
 extern size_t                      frame_skip(frameobject* __frameobject, size_t __nframes);
 extern int                         frame_error(frameobject* __frameobject);
 extern int                         frame_close(frameobject* __frameobject);
