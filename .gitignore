@@ -2,3 +2,4 @@ bin/*
 Frames
 object/*
 build
+discord/storage/*
