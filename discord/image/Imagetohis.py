@@ -4,7 +4,7 @@ import argparse
 import cv2
 import requests 
 
-#from compare.comparehis import comparehis
+
 
 images = {}
 
@@ -25,7 +25,7 @@ def imagetohis(url):
 
     return hist
     
-    #ret,min = comparehis(hist)
+
     
     
     
