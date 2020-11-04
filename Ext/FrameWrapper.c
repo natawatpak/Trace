@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include "video/frames.h"
 #include "structmember.h"
@@ -78,6 +79,8 @@ static PyObject* Frame_Open(FrameObject* self, PyObject* args) {
 }
 
 static PyObject* Frame_Extract(FrameObject* self, PyObject* args, PyObject* kwds) {
+    static char buffer[128];
+
     int nframes = 60;
     static char *kwlist[] = {"dstfmt", "nframes", "pixfmt", "dstid", "sepsave", "bulksave", "skip", NULL};
     char* dstfmt = NULL;
@@ -90,6 +93,19 @@ static PyObject* Frame_Extract(FrameObject* self, PyObject* args, PyObject* kwds
     if (dstfmt == NULL) {
         return PyErr_Format(PyExc_TypeError, "Frame_Extract expects 1 argument (0 given)");
     }
+
+    char* dstfmt_ptr = dstfmt;
+    while (*dstfmt && *dstfmt != '/')++dstfmt;
+    if (!bulksave) {
+        PyErr_Format(PyExc_NameError, "Format for frame and second not specified, perhaps bulksave was intended");
+        return NULL;
+    }
+    struct stat stb;
+    memcpy(buffer, dstfmt, dstfmt_ptr-dstfmt);
+    buffer[dstfmt_ptr-dstfmt] = '\0';
+    if (stat(buffer, &stb) < 0) {
+        perror("stat");
+    } 
 
     struct __frame_extract_opt extopt = {.bulksave=bulksave, .sepsave=sepsave, .nframes_requested=nframes, .skip=skip};
 
