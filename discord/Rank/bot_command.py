@@ -30,5 +30,8 @@ async def top(ctx):
 
 @bot.command(name='weekly')
 async def weekly(ctx):
-    for x in top_week:
+    for x in recent():
         await ctx.send(f'{x}')
+
+
+bot.run(token)

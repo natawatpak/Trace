@@ -6,6 +6,8 @@ def recent():
     week = {}
     for date, v in sorted(weekly_anime_list.items(), key=lambda x: x[0])[-7:]:
         for i, j in v.items():
-            temp[i] = temp.get(i, 0) + j
-    top_week = sorted(week.items(), key=lambda x: x[1], reverse=True)[:5]
+            week[i] = week.get(i, 0) + j
+
+    top_week = sorted(week.items(), key=lambda x: x[1], reverse=True)
+
     return top_week
