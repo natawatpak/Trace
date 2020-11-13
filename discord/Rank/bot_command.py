@@ -3,6 +3,7 @@ import json
 import discord
 from discord.ext import commands
 from last_week import recent
+import Frame
 
 client = discord.Client()
 
@@ -32,3 +33,8 @@ async def top(ctx):
 async def weekly(ctx):
     for x in top_week:
         await ctx.send(f'{x}')
+
+@bot.command(name='add') 
+async def add(ctx) :
+    f = Frame.Frame() 
+    client.
