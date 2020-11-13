@@ -14,4 +14,5 @@ int _frame_close(__frame_frameobject* self) {
     free(self);
     return 0;
 }
+
 weak_alias(_frame_close, frame_close);

@@ -1,5 +1,7 @@
 #include "video/frames.h"
 
+#define max(x,y) (x>y?x:y)
+
 extern int                  _frame_extract(__frame_frameobject*, enum AVPixelFormat, enum AVCodecID, char*, ...) attribute_hidden;
 
 int _frame_extract(__frame_frameobject* self, enum AVPixelFormat pixfmt, enum AVCodecID codecID, char* format, ...) {
@@ -70,18 +72,22 @@ int _frame_extract(__frame_frameobject* self, enum AVPixelFormat pixfmt, enum AV
             fprintf(stderr, "avcodec_send_packet: %s\n", error_buf);
             return self->_errnum;  
         }
+        
+        
         if ((self->_errnum = avcodec_receive_frame(self->_cCtx, self->_frame)) != 0) {
             continue;
         }
-
+        
+        
         if (extopt.skip) {
             extopt.nframes_requested--;
             self->_cframe++;
             continue;
         }        
-
+        
         sws_scale(self->_img_convert_ctx, (const unsigned char* const*)self->_frame->data, self->_frame->linesize, 0, self->_cCtx->height, self->_frameRGB->data, self->_frameRGB->linesize);
         
+
         if ((self->_errnum = avcodec_send_frame(c, self->_frameRGB)) < 0) {
             av_strerror(self->_errnum, error_buf, error_buf_len);
             fprintf(stderr, "avcodec_send_frame: %s", error_buf);       
@@ -112,6 +118,7 @@ int _frame_extract(__frame_frameobject* self, enum AVPixelFormat pixfmt, enum AV
         if (extopt.nframes_requested != -1) {
             extopt.nframes_requested--;
         }
+
         self->_cframe++;
     }    
 

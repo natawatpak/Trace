@@ -22,6 +22,7 @@ int _frame_optextract(__frame_frameobject* self, enum AVPixelFormat pixfmt, enum
 
     if (extopt.bulksave) {
         dst = fopen(format, "w");
+        
     }
 
     c->bit_rate  = self->_cCtx->bit_rate;

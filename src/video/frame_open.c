@@ -20,6 +20,7 @@ __frame_frameobject* _frame_open(char *file) {
     self->_cCtx = avcodec_alloc_context3(NULL);
     self->_frame = av_frame_alloc();
     self->_frameRGB = av_frame_alloc();
+    
 
 
     if ((self->_errnum = avformat_open_input(&self->_fCtx, file, NULL, NULL)) < 0) {
@@ -60,6 +61,7 @@ __frame_frameobject* _frame_open(char *file) {
     self->_frame_rate = av_guess_frame_rate(self->_fCtx, self->_fCtx->streams[self->_video_index], NULL);
     self->_nbytes = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, self->_cCtx->width, self->_cCtx->height, 16);
     self->_underlying_buf = av_malloc(self->_nbytes) ;
+    self->_oldData = NULL;
 
     av_image_fill_arrays(self->_frameRGB->data, self->_frameRGB->linesize, (uint8_t*)self->_underlying_buf, AV_PIX_FMT_YUV420P, self->_cCtx->width, self->_cCtx->height, 16);
     return self;
