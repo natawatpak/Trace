@@ -27,7 +27,7 @@ enum Relations {
     OTHER               = 100
 };
 
-DEFINE_TRIVIAL_LINKED_LIST(id_list, int, id);
+DEFINE_TRIVIAL_LINKED_LIST(id_list, char*, id);
 DEFINE_TRIVIAL_LINKED_LIST(tags, int, tag);
 DEFINE_TRIVIAL_LINKED_LIST(name_list, const char*, name);
 DEFINE_TRIVIAL_LINKED_LIST(award_list, const char*, award);
@@ -48,13 +48,13 @@ typedef struct __internal_anidb_response {
     uint16_t       aid;
     uint16_t       dateflags;
     struct ryear   year;
-    const char*    type;
+    char*          type;
     struct id_list* related_aid_list;
     struct id_list* related_aid_type;
 
     wchar_t*    romanji_name;
     wchar_t*    kanji_name;
-    const char* english_name;
+    char*       english_name;
     wchar_t*    other_name;
     struct name_list* short_name_list;
     struct name_list* syn_name_list;
@@ -64,8 +64,8 @@ typedef struct __internal_anidb_response {
     uint16_t    special_ep_count;
     struct date air_date;
     struct date end_date;
-    const char* url;
-    const char* pic_name;
+    char* url;
+    char* pic_name;
 
     uint16_t    ratings;
     uint16_t    vote_count;
