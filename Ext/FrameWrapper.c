@@ -3,9 +3,7 @@
 #include <sys/stat.h>
 #include "video/frames.h"
 #include "structmember.h"
-
-#define unused __attribute__((unused))
-
+#include "common.h"
 
 typedef struct py_frameobject{
     PyObject_HEAD;
