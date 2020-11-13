@@ -28,21 +28,15 @@ enum Relations {
 };
 
 DEFINE_TRIVIAL_LINKED_LIST(id_list, char*, id);
-DEFINE_TRIVIAL_LINKED_LIST(tags, int, tag);
-DEFINE_TRIVIAL_LINKED_LIST(name_list, const char*, name);
-DEFINE_TRIVIAL_LINKED_LIST(award_list, const char*, award);
-DEFINE_TRIVIAL_LINKED_LIST(weight_list, int, weight);
+DEFINE_TRIVIAL_LINKED_LIST(tags, char*, tag);
+DEFINE_TRIVIAL_LINKED_LIST(name_list, char*, name);
+DEFINE_TRIVIAL_LINKED_LIST(award_list, char*, award);
+DEFINE_TRIVIAL_LINKED_LIST(weight_list, char*, weight);
 
 struct ryear {
     uint16_t from; 
     uint16_t to;
 }; 
-
-struct date {
-    uint8_t day;
-    uint8_t month;
-    uint16_t year;
-};
 
 typedef struct __internal_anidb_response {
     uint16_t       aid;
@@ -52,7 +46,7 @@ typedef struct __internal_anidb_response {
     struct id_list* related_aid_list;
     struct id_list* related_aid_type;
 
-    wchar_t*    romanji_name;
+    char*      romanji_name;
     wchar_t*    kanji_name;
     char*       english_name;
     wchar_t*    other_name;
@@ -62,8 +56,8 @@ typedef struct __internal_anidb_response {
     uint16_t    episodes;
     uint16_t    highest_episode_number;
     uint16_t    special_ep_count;
-    struct date air_date;
-    struct date end_date;
+    uint64_t    air_date;
+    uint64_t    end_date;
     char* url;
     char* pic_name;
 
@@ -80,8 +74,8 @@ typedef struct __internal_anidb_response {
     uint16_t    allcinema_id;
     uint16_t    animeNFOid;
     struct tags* tags;
-    struct id_list* ids;
-    struct weight_list* weight_list;
+    struct id_list* tag_ids;
+    struct weight_list* tag_weight_list;
     uint16_t    date_record_updated;
 
     struct id_list* character_id_list;
@@ -98,7 +92,6 @@ typedef struct __internal_req_field {
     char           _session[ANIDB_NSESSION + 1];
     char           _buffer[ANIDB_NREAD];
     int            _sfd, _r;
-    anidb_response _anidb_response;
 }QueryObject;
 
 QueryObject*    query_new(const char* username, const char* password, const char* client, const char* clientver); /* avoid calling query_init directly */
@@ -108,6 +101,7 @@ const char*     query_refresh_session(QueryObject* qobj);
 anidb_response  query_by_name(QueryObject* qobj, const char* aname, const char* amask);
 anidb_response  query_by_id(QueryObject* qobj, int aid, const char* amask);
 void            query_free(QueryObject* qobj);
+void            query_anidb_response_free(anidb_response* ani_res);
 
 const char*     query_int_to_amask(uint64_t iamask);
 
