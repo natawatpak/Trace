@@ -23,6 +23,7 @@ def main () :
 
     f = Frame.Frame()
     f.open(args.infile)
+    f.extract(dstfmt=args.dstfmt, nframes=60, skip=1)
     f.extract(dstfmt=args.dstfmt, nframes=args.nframes_requested, bulksave=args.bulksave, sepsave=args.sepsave)
     f.close()
 
