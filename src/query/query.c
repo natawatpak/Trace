@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <wchar.h>
 
 #include "query/query.h"
 #include "query/query_codes.h"
@@ -17,15 +18,13 @@
 #define unused __attribute__((unused))
 
 DEFINE_TRIVIAL_LINKED_LIST(fields, char*, field);
+DEFINE_TRIVIAL_LINKED_LIST(any_list, char*, elem); 
 
 struct response {
     int code;
     char* retstring;
     struct fields* fields;
 };
-
-
-#define query_string_parser strtok_r
 
 PARSER struct response query_response_parser(const char* r) {
     struct response response = {0};
@@ -65,17 +64,44 @@ PARSER void query_response_free(struct response* r) {
     while (fnext) {
         fp = fnext;
         fnext = fnext->next;
+        free(fp->field);
         free(fp);
     }
     
 }
 
-PARSER uint64_t query_int_parser(const char* r unused) {
-    return 0;
+PARSER struct any_list* query_any_list_parser(char* r, char* delim) {
+    struct any_list* head = calloc(1, sizeof *head);
+    struct any_list* plist = head;
+
+    char* endptr;
+    char* token;
+    for ( ; ; r = NULL) {
+        token = strtok_r(r, delim, &endptr);
+        if (token == NULL) {
+            free(plist->next);
+            plist->next = NULL;
+            break;
+        }
+        plist->elem = calloc(1, strlen(token)+1);
+        strcpy(plist->elem, token);
+        plist = plist->next = calloc(1, sizeof *plist->next);
+    }
+
+    return head;
 }
-PARSER uint64_t query_int_list_parser(const char* r unused) {
-    return 0;
+
+
+PARSER void query_any_list_free(struct any_list* al) {
+    struct any_list* _al;
+    while (al) {
+        _al = al;
+        al = al->next;
+        free(_al->elem);
+        free(_al);
+    }
 }
+
 PARSER uint64_t query_year_parser(const char* r unused) {
     return 0;
 }
@@ -156,8 +182,6 @@ const char*     query_refresh_session(QueryObject* qobj) {
     memcpy(qobj->_session, r.retstring, ANIDB_NSESSION);
     qobj->_session[ANIDB_NSESSION] = '\0';
 
-    r.retstring = NULL;
-
     query_response_free(&r); 
 
     return qobj->_session;
@@ -189,11 +213,13 @@ retry:
     struct response r = query_response_parser(qobj->_buffer);
     if (r.code == ANIDB_LOGIN_FIRST || r.code == ANIDB_INVALID_SESSION) {
         printf("Invalid session or hasn't log in, attempting login\n");
+        query_response_free(&r);
         query_refresh_session(qobj);
         goto retry;
     }
     if (r.code == ANIDB_NO_SUCH_ANIME) {
         fprintf(stderr, "No such anime found\n");
+        query_response_free(&r);
         return (anidb_response){0};
     }
 
@@ -202,14 +228,144 @@ retry:
         exit(EXIT_FAILURE);
     }
 
-#define BIT_DISPATCH(bit,n) 
+#define ISSET(mask,bit) (((mask) & (bit)) == (bit))
+#define NEXT(l) ((l) = (l)->next)
     printf("%s\n", qobj->_buffer);    
+    anidb_response ani_res;
+    struct fields* fields = r.fields;
+
+    memcpy(qobj->_buffer, "0x", 2);
+    strcpy(qobj->_buffer+2, amask); 
+    uint64_t iamask = strtol(qobj->_buffer, NULL, 16);
+
+    if (ISSET(iamask, QUERY_FLAG_AID)) {
+        ani_res.aid = strtol(fields->field, NULL, 10); 
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_DATEFLAGS)) {
+        ani_res.dateflags = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_YEAR)) {
+        struct any_list* al = query_any_list_parser(fields->field, "-");
+        ani_res.year = (struct ryear){.from = strtol(al->elem, NULL, 10), .to=strtol(al->next->elem, NULL, 10)};
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_TYPE)) {
+        ani_res.type = calloc(strlen(fields->field)+1, 1);
+        strcpy(ani_res.type, fields->field);
+        NEXT(fields);  
+    }
+    if (ISSET(iamask, QUERY_FLAG_RELATED_AID_LIST)) {
+        ani_res.related_aid_list = (struct id_list*)query_any_list_parser(fields->field, "\'");
+        NEXT(fields);
+    } 
+    if (ISSET(iamask, QUERY_FLAG_RELATED_AID_TYPE)) {
+        ani_res.related_aid_type = (struct id_list*)query_any_list_parser(fields->field, "\'");
+        NEXT(fields);
+    }
+
+    if (ISSET(iamask, QUERY_FLAG_ROMANJI_NAME)) {
+        ani_res.romanji_name = calloc(wcslen((wchar_t*)fields->field) + 1, sizeof (wchar_t));
+        wcscpy(ani_res.romanji_name, (wchar_t*)fields->field);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_KANJI_NAME)) {
+        ani_res.romanji_name = calloc(wcslen((wchar_t*)fields->field) + 1, sizeof (wchar_t));
+        wcscpy(ani_res.romanji_name, (wchar_t*)fields->field);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_ENGLISH_NAME)) {
+        ani_res.english_name = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res.english_name, fields->field);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_SHORT_NAME_LIST)) {
+        ani_res.short_name_list = (struct name_list*)query_any_list_parser(fields->field, "\'");
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_SYN_NAME_LIST)) {
+        ani_res.syn_name_list = (struct name_list*)query_any_list_parser(fields->field, "\'");
+        NEXT(fields);
+    }
+
+    if (ISSET(iamask, QUERY_FLAG_EPISODES)) {
+        ani_res.episodes = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_HIGHEST_EP_NUM)) {
+        ani_res.highest_episode_number = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_SPECIAL_EP_CNT)) {
+        ani_res.special_ep_count = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_AIRDATE)) {
+         
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_ENDDATE)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_URL)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_PICNAME)) {
+        ani_res.pic_name = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res.pic_name, fields->field);
+        NEXT(fields);
+    }
+
+    if (ISSET(iamask, QUERY_FLAG_ANN_ID)) {
+        
+    }
+    if (ISSET(iamask, QUERY_FLAG_ALL_CINEMA_ID)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_ANIME_NFO)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_TAG_NAME_LIST)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_TAG_ID_LIST)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_TAG_WEIGHT_LIST)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_DATE_RECORD_UPDATED)) {
+        NEXT(fields);
+    }
+
+    if (ISSET(iamask, QUERY_FLAG_CHARACTER_ID_LIST)) {
+        NEXT(fields);
+    }
+
+    if (ISSET(iamask, QUERY_FLAG_SPECIALS_CNT)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_CREDITS_CNT)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_OTHER_CNT)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_TRAILER_CNT)) {
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_PARODY_CNT)) {
+        NEXT(fields);
+    }
+    
 
     query_response_free(&r);
-    return (anidb_response){0};
+    return ani_res;
 }
 void            query_free(QueryObject* qobj) {
     close(qobj->_sfd);
+    free(qobj);
 }
 
 const char*     query_int_to_amask(uint64_t iamask) {
