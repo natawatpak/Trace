@@ -91,21 +91,22 @@ static PyObject* Frame_Extract(FrameObject* self, PyObject* args, PyObject* kwds
     }
 
     if (dstfmt == NULL) {
-        return PyErr_Format(PyExc_TypeError, "Frame_Extract expects 1 argument (0 given)");
+        return PyErr_Format(PyExc_TypeError, "Frame_Extract expects 1 positional argument 'dstfmt' (0 given)");
     }
 
     char* dstfmt_ptr = dstfmt;
-    while (*dstfmt && *dstfmt != '/')++dstfmt;
-    if (!bulksave) {
+    while (*dstfmt_ptr && *dstfmt_ptr != '/')++dstfmt_ptr;
+    if (!bulksave && !*dstfmt_ptr) {
         PyErr_Format(PyExc_NameError, "Format for frame and second not specified, perhaps bulksave was intended");
         return NULL;
     }
+
     struct stat stb;
     memcpy(buffer, dstfmt, dstfmt_ptr-dstfmt);
     buffer[dstfmt_ptr-dstfmt] = '\0';
     if (stat(buffer, &stb) < 0) {
         perror("stat");
-    } 
+    }
 
     struct __frame_extract_opt extopt = {.bulksave=bulksave, .sepsave=sepsave, .nframes_requested=nframes, .skip=skip};
 
@@ -113,7 +114,7 @@ static PyObject* Frame_Extract(FrameObject* self, PyObject* args, PyObject* kwds
 }
 
 static PyObject* Frame_Skip(FrameObject* self, PyObject* args) {
-    return NULL;
+    return PyErr_Format(PyExc_NotImplementedError, "Frame_Skip currently not implemented\n");
 }
 
 static PyObject* Frame_Close(FrameObject* self, PyObject* unused dummy) {
@@ -123,7 +124,6 @@ static PyObject* Frame_Close(FrameObject* self, PyObject* unused dummy) {
 static PyObject* Frame_Error(FrameObject* self, PyObject* unused dummy) {
     return PyLong_FromLong(frame_error(self->frameobject));
 }
-
 
 PyMODINIT_FUNC PyInit_Frame(void) {
     PyObject* m;
@@ -139,7 +139,6 @@ PyMODINIT_FUNC PyInit_Frame(void) {
         Py_DECREF(&FrameType);
         Py_DECREF(m);
     } 
-
     return m;
 }
 
