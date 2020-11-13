@@ -1,0 +1,60 @@
+#ifndef __QUERY_FLAGS_H
+#define __QUERY_FLAGS_H
+
+#define ANIDB_NBIT                     56
+#define ANIDB_IBIT(n)                  (1ULL << (ANIDB_NBIT - n))
+
+/* byte 1 */
+#define QUERY_FLAG_AID                 ANIDB_IBIT(1)
+#define QUERY_FLAG_DATEFLAGS           ANIDB_IBIT(2)
+#define QUERY_FLAG_YEAR                ANIDB_IBIT(3)
+#define QUERY_FLAG_TYPE                ANIDB_IBIT(4)
+#define QUERY_FLAG_RELATED_AID_LIST    ANIDB_IBIT(5)
+#define QUERY_FLAG_RELATED_AID_TYPE    ANIDB_IBIT(6)
+
+/* byte 2 */
+#define QUERY_FLAG_ROMANJI_NAME        ANIDB_IBIT(9)
+#define QUERY_FLAG_KANJI_NAME          ANIDB_IBIT(10)
+#define QUERY_FLAG_ENGLISH_NAME        ANIDB_IBIT(11)
+#define QUERY_SHORT_NAME_LIST          ANIDB_IBIT(12)
+#define QUERY_SYN_NAME_LIST            ANIDB_IBIT(13)
+
+/* byte 3 */
+#define QUERY_FLAG_EPISODES            ANIDB_IBIT(17)
+#define QUERY_FLAG_HIGHEST_EP_NUM      ANIDB_IBIT(18)
+#define QUERY_FLAG_SPECIAL_EP_CNT      ANIDB_IBIT(19)
+#define QUERY_FLAG_AIRDATE             ANIDB_IBIT(20)
+#define QUERY_FLAG_ENDDATE             ANIDB_IBIT(21)
+#define QUERY_FLAG_URL                 ANIDB_IBIT(22)
+#define QUERY_FLAG_PICNAME             ANIDB_IBIT(23)
+
+/* byte 4 */
+#define QUERY_FLAG_RATINGS             ANIDB_IBIT(25)
+#define QUERY_FLAG_VOTE_CNT            ANIDB_IBIT(26)
+#define QUERY_FLAG_TMP_RATING          ANIDB_IBIT(27)
+#define QUERY_FLAG_TMP_VOTE_CNT        ANIDB_IBIT(28)
+#define QUERY_FLAG_AVG_REVIEW_RATING   ANIDB_IBIT(29)
+#define QUERY_FLAG_REVIEW_CNT          ANIDB_IBIT(30)
+#define QUERY_FLAG_AWARD_LIST          ANIDB_IBIT(31)
+#define QUERY_FLAG_IS_NSFW             ANIDB_IBIT(32)
+
+/* byte 5 */
+#define QUERY_FLAG_ANN_ID              ANIDB_IBIT(34)
+#define QUERY_FLAG_ALL_CINEMA_ID       ANIDB_IBIT(35)
+#define QUERY_FLAG_ANIME_NFO           ANIDB_IBIT(36)
+#define QUERY_FLAG_TAG_NAME_LIST       ANIDB_IBIT(37)
+#define QUERY_FLAG_TAG_ID_LIST         ANIDB_IBIT(38)
+#define QUERY_FLAG_TAG_WEIGHT_LIST     ANIDB_IBIT(39)
+#define QUERY_FLAG_DATE_RECORD_UPDATED ANIDB_IBIT(40)
+
+/* byte 6 */
+#define QUERY_FLAG_CHARACTER_ID_LIST   ANIDB_IBIT(41)
+
+/* byte 7 */
+#define QUERY_FLAG_SPECIALS_CNT        ANIDB_IBIT(49)
+#define QUERY_FLAG_CREDITS_CNT         ANIDB_IBIT(50)
+#define QUERY_FLAG_OTHER_CNT           ANIDB_IBIT(51)
+#define QUERY_FLAG_TRAILER_CNT         ANIDB_IBIT(52)
+#define QUERY_FLAG_PARODY_CNT          ANIDB_IBIT(53)
+
+#endif
