@@ -231,7 +231,7 @@ retry:
 #define ISSET(mask,bit) (((mask) & (bit)) == (bit))
 #define NEXT(l) ((l) = (l)->next)
     printf("%s\n", qobj->_buffer);    
-    anidb_response ani_res;
+    anidb_response ani_res = {0};
     struct fields* fields = r.fields;
 
     memcpy(qobj->_buffer, "0x", 2);
@@ -249,6 +249,7 @@ retry:
     if (ISSET(iamask, QUERY_FLAG_YEAR)) {
         struct any_list* al = query_any_list_parser(fields->field, "-");
         ani_res.year = (struct ryear){.from = strtol(al->elem, NULL, 10), .to=strtol(al->next->elem, NULL, 10)};
+        query_any_list_free(al);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TYPE)) {
@@ -266,13 +267,13 @@ retry:
     }
 
     if (ISSET(iamask, QUERY_FLAG_ROMANJI_NAME)) {
-        ani_res.romanji_name = calloc(wcslen((wchar_t*)fields->field) + 1, sizeof (wchar_t));
-        wcscpy(ani_res.romanji_name, (wchar_t*)fields->field);
+        ani_res.romanji_name = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res.romanji_name, fields->field);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_KANJI_NAME)) {
-        ani_res.romanji_name = calloc(wcslen((wchar_t*)fields->field) + 1, sizeof (wchar_t));
-        wcscpy(ani_res.romanji_name, (wchar_t*)fields->field);
+        ani_res.kanji_name = calloc(wcslen((wchar_t*)fields->field) + 1, sizeof (wchar_t));
+        wcscpy(ani_res.kanji_name, (wchar_t*)fields->field);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ENGLISH_NAME)) {
@@ -302,13 +303,16 @@ retry:
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_AIRDATE)) {
-         
+        ani_res.air_date = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ENDDATE)) {
+        ani_res.end_date = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_URL)) {
+        ani_res.url = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res.url, fields->field);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_PICNAME)) {
@@ -317,45 +321,87 @@ retry:
         NEXT(fields);
     }
 
+    if (ISSET(iamask, QUERY_FLAG_RATINGS)) {
+        ani_res.ratings = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_VOTE_CNT)) {
+        ani_res.vote_count = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_TMP_RATING)) {
+        ani_res.temp_rating = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_AVG_REVIEW_RATING)) {
+        ani_res.average_review_rating = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_REVIEW_CNT)) {
+        ani_res.review_count = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_AWARD_LIST)) {
+        ani_res.awards = (struct award_list*)query_any_list_parser(fields->field, "\'");
+        NEXT(fields);
+    }
+    if (ISSET(iamask, QUERY_FLAG_IS_NSFW)) {
+        ani_res.is_nsfw = strtol(fields->field, NULL, 10);
+        NEXT(fields);
+    }
+
     if (ISSET(iamask, QUERY_FLAG_ANN_ID)) {
-        
+        ani_res.ANNid = strtol(fields->field, NULL, 10);
+        NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ALL_CINEMA_ID)) {
+        (void)ani_res.allcinema_id;
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ANIME_NFO)) {
+        
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_NAME_LIST)) {
+        ani_res.tags = (struct tags*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_ID_LIST)) {
+        ani_res.tag_ids = (struct id_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_WEIGHT_LIST)) {
+        ani_res.tag_weight_list = (struct weight_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_DATE_RECORD_UPDATED)) {
+        ani_res.date_record_updated = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_CHARACTER_ID_LIST)) {
+        ani_res.character_id_list = (struct id_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_SPECIALS_CNT)) {
+        ani_res.specials_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_CREDITS_CNT)) {
+        ani_res.credits_count = strtol(fields->field, NULL, 10);;
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_OTHER_CNT)) {
+        ani_res.others_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TRAILER_CNT)) {
+        ani_res.trailers_count = strtol(fields->field, NULL, 10);;
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_PARODY_CNT)) {
+        ani_res.parodies_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     
@@ -363,6 +409,25 @@ retry:
     query_response_free(&r);
     return ani_res;
 }
+
+void query_anidb_response_free(anidb_response* ani_res) {
+    query_any_list_free((struct any_list*)ani_res->related_aid_list);
+    query_any_list_free((struct any_list*)ani_res->related_aid_type);
+    free(ani_res->romanji_name);
+    free(ani_res->english_name);
+    free(ani_res->other_name);
+    free(ani_res->kanji_name);
+    query_any_list_free((struct any_list*)ani_res->short_name_list);
+    query_any_list_free((struct any_list*)ani_res->syn_name_list);
+    free(ani_res->url);
+    free(ani_res->pic_name);
+    query_any_list_free((struct any_list*)ani_res->awards);
+    query_any_list_free((struct any_list*)ani_res->tags);
+    query_any_list_free((struct any_list*)ani_res->tag_ids);
+    query_any_list_free((struct any_list*)ani_res->tag_weight_list);
+    query_any_list_free((struct any_list*)ani_res->character_id_list);
+}
+
 void            query_free(QueryObject* qobj) {
     close(qobj->_sfd);
     free(qobj);
@@ -370,6 +435,6 @@ void            query_free(QueryObject* qobj) {
 
 const char*     query_int_to_amask(uint64_t iamask) {
     static char amask[64];
-    snprintf(amask, 64, "%lx", iamask);
+    snprintf(amask, 64, "%014lx", iamask);
     return amask;
 }
