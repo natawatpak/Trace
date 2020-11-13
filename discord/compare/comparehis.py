@@ -5,21 +5,25 @@ import argparse
 import glob
 import cv2
 import os
+import requests
 
+from image.Imagetohis import imagetohis 
 index = {}
 images = {}
 
 
-def comparehis (query):
+def comparehis (url):
+    
+    query=imagetohis(url)
+
     min = 1000
     for his_Path in glob.glob("../discord/storage" + "/his/*"):
         comhis = np.loadtxt(his_Path)
-            
         if chi2_distance(query,comhis)<min:
             min = chi2_distance(query,comhis)
             d,path = os.path.split(his_Path)
             #print(min)
-    return path,min
+    return path
 
 
 def chi2_distance(histA, histB, eps = 1e-10):

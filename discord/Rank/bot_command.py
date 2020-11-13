@@ -31,10 +31,12 @@ async def top(ctx):
 
 @bot.command(name='weekly')
 async def weekly(ctx):
-    for x in top_week:
+    for x in recent():
         await ctx.send(f'{x}')
 
 @bot.command(name='add') 
 async def add(ctx) :
     f = Frame.Frame() 
     client.
+
+bot.run(token)
