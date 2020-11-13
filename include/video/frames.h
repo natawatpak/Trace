@@ -11,6 +11,8 @@
 #include <libavutil/imgutils.h>
 #include <stddef.h>
 
+#include "common.h"
+
 #define FRAME_ENDARG   0x0
 #define FRAME_NSAVE    0x1
 #define FRAME_BULKSAVE 0x2
@@ -24,6 +26,7 @@ typedef struct __frame_frameobject {
     AVFrame            *_frame_buffer, *_frame, *_frameRGB;
     AVRational         _frame_rate;
     struct SwsContext  *_img_convert_ctx;
+    uint8_t**          *_oldData;
     int                _video_index;
     int                _errnum;
     int                _nbytes;
@@ -53,17 +56,6 @@ static char error_buf[error_buf_len];
 #else
 #define error_buf self->_err_buf
 #endif
-
-
-// glibc's from libc-symbols.h
-#define weak_alias(name, aliasname) _weak_alias(name, aliasname)
-#define _weak_alias(name, aliasname)      \
-    extern __typeof__(name) aliasname     \
-    __attribute__((weak, alias(#name)))   \
-    __attribute_copy__(name)                                      
-
-#define attribute_hidden __attribute__((visibility("hidden")))
-
 
 #define _FRAME_MEMBER_TYPE(type, member) __typeof__(((type){}).member)
 #define _FRAME_REINTERPRET_ACCESS(self, type, member) (*(_FRAME_MEMBER_TYPE(type, member)*)((char*)self + offsetof(type, member)))
