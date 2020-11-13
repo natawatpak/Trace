@@ -15,7 +15,7 @@ int main (int argc, char** argv) {
     QueryObject* qobj = query_new(argv[1], argv[2], argv[3], argv[4]);
     query_establish_connection(qobj);
     fprintf(stdout, "Session ID: %s\n", query_refresh_session(qobj));
-    query_by_id(qobj, 1, query_int_to_amask(QUERY_FLAG_AID | QUERY_FLAG_RELATED_AID_LIST | QUERY_FLAG_RELATED_AID_TYPE));
+    query_by_id(qobj, 1, "b2f0e0fc000000");
     query_free(qobj);
     return 0;
     
