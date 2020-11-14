@@ -151,7 +151,7 @@ QueryObject*    query_establish_connection(QueryObject* qobj) {
         return NULL;
     }
     return qobj;
-}
+} 
 
 const char*     query_refresh_session(QueryObject* qobj) {
     int n;
@@ -363,15 +363,15 @@ retry:
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_NAME_LIST)) {
-        ani_res.tags = (struct tags*)query_any_list_parser(fields->field, "\'");
+        ani_res.tags = (struct tags*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_ID_LIST)) {
-        ani_res.tag_ids = (struct id_list*)query_any_list_parser(fields->field, "\'");
+        ani_res.tag_ids = (struct id_list*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_WEIGHT_LIST)) {
-        ani_res.tag_weight_list = (struct weight_list*)query_any_list_parser(fields->field, "\'");
+        ani_res.tag_weight_list = (struct weight_list*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_DATE_RECORD_UPDATED)) {
@@ -380,7 +380,7 @@ retry:
     }
 
     if (ISSET(iamask, QUERY_FLAG_CHARACTER_ID_LIST)) {
-        ani_res.character_id_list = (struct id_list*)query_any_list_parser(fields->field, "\'");
+        ani_res.character_id_list = (struct id_list*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
 
