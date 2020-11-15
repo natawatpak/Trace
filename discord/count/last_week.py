@@ -1,8 +1,8 @@
-from count.count_func import call_count
+from discord.count.count_func import call_count
 import json
 
 def recent():
-    weekly_anime_list = json.load(open('storage/daily_frequency.json', 'r'))
+    weekly_anime_list = json.load(open('data/daily_frequency.json', 'r'))
     week = {}
     for date, v in sorted(weekly_anime_list.items(), key=lambda x: x[0])[-7:]:
         for i, j in v.items():

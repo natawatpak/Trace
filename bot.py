@@ -9,16 +9,17 @@ from dotenv import load_dotenv
 import asyncio
 import json
 
-from image.downloadImage import downloadImage
-from compare.comparehis import comparehis
+from discord.image.downloadImage import downloadImage
+from discord.compare.comparehis import comparehis
 
-from count.count_func import call_count
-from count.last_week import recent
+
+from discord.count.count_func import call_count
+from discord.count.last_week import recent
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-bot = Bot(command_prefix='!')
+bot = Bot(command_prefix='t!')
 bot.remove_command('help')
 
 @bot.command(name='server')
@@ -63,12 +64,13 @@ async def announce(ctx, channel: discord.TextChannel, *, msg):
 pic_ext = ['.jpg','.png','.jpeg']
 
 @bot.command(name='add')
-async def add(ctx, url):
+async def add(ctx, name, url):
     run = False
+
     for ext in pic_ext:
         if url.endswith(ext):
             await ctx.send('picture')
-            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(url))
+            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(name,url))
             run = True
             break
     
@@ -81,9 +83,28 @@ async def source(ctx, url):
     for ext in pic_ext:
         if url.endswith(ext):
             await ctx.send('picture')
-            source_name = comparehis(url)
-            await ctx.send(str(ctx.author.mention)+" \n"+ source_name)
-            call_count(source_name)
+            source_path = comparehis(url)
+            print(source_path)
+            d, _ = os.path.split(source_path)
+            d, _= os.path.split(d)
+            _,name= os.path.split(d)
+            call_count(name)
+            await ctx.send(str(ctx.author.mention)+" \n"+ name)
+            info = json.load(open(d+'/meta.json', 'r'))
+            file = discord.File(source_path, filename= "image"+"."+source_path.split(".")[-1])
+            print(source_path.split(".")[-1])
+            embed = discord.Embed(
+                title=info["QUERY_FLAG_ROMANJI_NAME"]+"\n"+info["QUERY_FLAG_ENGLISH_NAME"],
+                description=info["QUERY_FLAG_YEAR"],
+                colour=discord.Color.blue()
+            )
+            embed.add_field(name="Episode", value=info["QUERY_FLAG_EPISODES"], inline=False)
+            embed.add_field(name="Ratings", value=info["QUERY_FLAG_RATINGS"], inline=False)
+            embed.add_field(name="Tags", value=info["QUERY_FLAG_TAG_NAME_LIST"].replace(",",", "),inline=False)
+            embed.add_field(name="\a", value= '\a')
+            embed.add_field(name="Best matched", value= '\a', inline=False)
+            embed.set_image(url="attachment://"+"image"+"."+source_path.split(".")[-1])
+            await ctx.send(file=file,embed=embed)
             run = True
             break
 
@@ -92,7 +113,7 @@ async def source(ctx, url):
 
 @bot.command(name='top')
 async def top(ctx):
-    anime_list = json.load(open('storage/frequency.json', 'r'))
+    anime_list = json.load(open('data/frequency.json', 'r'))
     top = sorted(anime_list.items(), key=lambda x: x[1], reverse=True)
     for x in top:
         await ctx.send(f'{x}')

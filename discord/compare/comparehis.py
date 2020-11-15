@@ -1,5 +1,3 @@
-#from scipy.spatial import distance as dist
-#import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import glob
@@ -7,7 +5,7 @@ import cv2
 import os
 import requests
 
-from image.Imagetohis import imagetohis 
+from discord.image.Imagetohis import imagetohis 
 index = {}
 images = {}
 
@@ -17,13 +15,19 @@ def comparehis (url):
     query=imagetohis(url)
 
     min = 1000
-    for his_Path in glob.glob("../discord/storage" + "/his/*"):
-        comhis = np.loadtxt(his_Path)
-        if chi2_distance(query,comhis)<min:
-            min = chi2_distance(query,comhis)
-            d,path = os.path.split(his_Path)
-            #print(min)
-    return path
+    for story in glob.glob("../discord/data/*"):
+        if not story.endswith(".json"):
+            for his_Path in glob.glob(story+"/frames_txt/*"):
+                    comhis = np.loadtxt(his_Path)
+                    if chi2_distance(query,comhis)<min:
+                        min = chi2_distance(query,comhis)
+                        story_path = story
+                        _,name = os.path.split(his_Path)
+                #print(min)
+    print(story_path)
+    for img_Path in glob.glob(story_path+"/frames/"+name.split(".")[0] + ".*"):
+        print(img_Path)
+        return img_Path
 
 
 def chi2_distance(histA, histB, eps = 1e-10):
