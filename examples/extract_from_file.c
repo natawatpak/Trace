@@ -116,7 +116,7 @@ int main (int argc, char** argv) {
 
         int i = last_found(outfile, '/');
         if (i != -1)outfile[i]='\0';
-        snprintf(buffer, 256, "%s/%s.json", outfile, btmp);
+        snprintf(buffer, 256, "%s/metadata.json", outfile, btmp);
         FILE* json = fopen(buffer, "w");
         if (i != -1)outfile[i]='/';
         fprintf(json, "{\
