@@ -3,3 +3,5 @@ Frames
 object/*
 build
 discord/storage/*
+discord/data/*
+.env
