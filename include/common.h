@@ -15,5 +15,6 @@
     };
 
 #define attribute_hidden __attribute__((visibility("hidden")))
+#define unused           __attribute__((unused))
 
 #endif
