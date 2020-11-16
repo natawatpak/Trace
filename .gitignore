@@ -3,5 +3,8 @@ Frames
 object/*
 build
 discord/storage/*
+<<<<<<< HEAD
 discord/data/*
+=======
+>>>>>>> ec8df9036cdc6cea3246f9df85f055e02be9784b
 .env
