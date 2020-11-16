@@ -8,9 +8,13 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <wchar.h>
+#include <time.h>
 
 #include "query/query.h"
+#include "query/query_util.h"
 #include "query/query_codes.h"
 #include "config.h"
 
@@ -18,7 +22,6 @@
 #define unused __attribute__((unused))
 
 DEFINE_TRIVIAL_LINKED_LIST(fields, char*, field);
-DEFINE_TRIVIAL_LINKED_LIST(any_list, char*, elem); 
 
 struct response {
     int code;
@@ -70,37 +73,7 @@ PARSER void query_response_free(struct response* r) {
     
 }
 
-PARSER struct any_list* query_any_list_parser(char* r, char* delim) {
-    struct any_list* head = calloc(1, sizeof *head);
-    struct any_list* plist = head;
 
-    char* endptr;
-    char* token;
-    for ( ; ; r = NULL) {
-        token = strtok_r(r, delim, &endptr);
-        if (token == NULL) {
-            free(plist->next);
-            plist->next = NULL;
-            break;
-        }
-        plist->elem = calloc(1, strlen(token)+1);
-        strcpy(plist->elem, token);
-        plist = plist->next = calloc(1, sizeof *plist->next);
-    }
-
-    return head;
-}
-
-
-PARSER void query_any_list_free(struct any_list* al) {
-    struct any_list* _al;
-    while (al) {
-        _al = al;
-        al = al->next;
-        free(_al->elem);
-        free(_al);
-    }
-}
 
 PARSER uint64_t query_year_parser(const char* r unused) {
     return 0;
@@ -153,9 +126,8 @@ QueryObject*    query_establish_connection(QueryObject* qobj) {
     return qobj;
 } 
 
-const char*     query_refresh_session(QueryObject* qobj) {
+static inline const char*    _query_refresh_session(QueryObject* qobj) {
     int n;
-
     n = snprintf(qobj->_buffer, ANIDB_NREAD, ANIDB_AUTHFMT, qobj->_username, qobj->_password, qobj->_clientver, qobj->_client);
     write(qobj->_sfd, qobj->_buffer, n);
     n = read(qobj->_sfd, qobj->_buffer, ANIDB_NREAD);
@@ -183,9 +155,42 @@ const char*     query_refresh_session(QueryObject* qobj) {
     qobj->_session[ANIDB_NSESSION] = '\0';
 
     query_response_free(&r); 
-
     return qobj->_session;
 }
+
+const char*     query_refresh_session(QueryObject* qobj) {
+    if (*qobj->session_loc) {
+        struct stat st;
+
+        time_t t = time(NULL);
+
+        if ((stat(qobj->session_loc, &st) < 0) || (((st.st_ctime - t) / 60) > 35)) {
+            unlink(qobj->session_loc);
+            _query_refresh_session(qobj);
+            query_save_session(qobj);
+            return qobj->_session;
+        }
+
+        int fd = open(qobj->session_loc, O_RDONLY);
+        read(fd, qobj->_session, ANIDB_NSESSION + 1);
+        close(fd);
+        return qobj->_session;
+    }
+
+    return _query_refresh_session(qobj);
+}
+
+void query_enable_session_cache(QueryObject* qobj, const char* location) {
+    strncpy(qobj->session_loc, location, MAX_SESSION_LEN);  
+}
+
+void query_save_session(QueryObject* qobj) {
+    int fd = open(qobj->session_loc, O_WRONLY | O_TRUNC | O_CREAT, 0777);
+    write(fd, qobj->_session, ANIDB_NSESSION + 1);
+    close(fd);
+}
+
+
 
 anidb_response  query_by_name(QueryObject* qobj, const char* aname, const char* amask) {
     int n;
@@ -202,7 +207,8 @@ retry :
 
     return (anidb_response){0};
 }
-anidb_response  query_by_id(QueryObject* qobj, int aid, const char* amask) {
+
+anidb_response* query_by_id(QueryObject* qobj, int aid, const char* amask) {
     int n;
 retry:
     n = snprintf(qobj->_buffer, ANIDB_NREAD, ANIDB_ANIIDFMT, qobj->_session, aid, amask); 
@@ -211,16 +217,26 @@ retry:
     n = read(qobj->_sfd, qobj->_buffer, ANIDB_NREAD);
     qobj->_buffer[n] = '\0';
     struct response r = query_response_parser(qobj->_buffer);
-    if (r.code == ANIDB_LOGIN_FIRST || r.code == ANIDB_INVALID_SESSION) {
-        printf("Invalid session or hasn't log in, attempting login\n");
+    if (r.code == ANIDB_LOGIN_FIRST) {
         query_response_free(&r);
+        _query_refresh_session(qobj);
+        query_save_session(qobj);
+        goto retry;
+    }
+
+    if (r.code == ANIDB_INVALID_SESSION) {
         query_refresh_session(qobj);
         goto retry;
     }
+
     if (r.code == ANIDB_NO_SUCH_ANIME) {
         fprintf(stderr, "No such anime found\n");
         query_response_free(&r);
-        return (anidb_response){0};
+    }
+
+    if (r.code == ANIDB_BANNED) {
+        fprintf(stderr, "query_by_id: fatal: banned \"%s\"\n", r.retstring);
+        exit(EXIT_FAILURE);
     }
 
     if (r.code != ANIDB_ANIME) {
@@ -231,131 +247,131 @@ retry:
 #define ISSET(mask,bit) (((mask) & (bit)) == (bit))
 #define NEXT(l) ((l) = (l)->next)
     printf("%s\n", qobj->_buffer);    
-    anidb_response ani_res = {0};
-    struct fields* fields = r.fields;
+    anidb_response* ani_res = calloc(sizeof *ani_res, 1);
+    struct fields*  fields  = r.fields;
 
     memcpy(qobj->_buffer, "0x", 2);
     strcpy(qobj->_buffer+2, amask); 
     uint64_t iamask = strtol(qobj->_buffer, NULL, 16);
 
     if (ISSET(iamask, QUERY_FLAG_AID)) {
-        ani_res.aid = strtol(fields->field, NULL, 10); 
+        ani_res->aid = strtol(fields->field, NULL, 10); 
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_DATEFLAGS)) {
-        ani_res.dateflags = strtol(fields->field, NULL, 10);
+        ani_res->dateflags = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_YEAR)) {
         struct any_list* al = query_any_list_parser(fields->field, "-");
-        ani_res.year = (struct ryear){.from = strtol(al->elem, NULL, 10), .to=strtol(al->next->elem, NULL, 10)};
+        ani_res->year = (struct ryear){.from = strtol(al->elem, NULL, 10), .to=strtol(al->next->elem, NULL, 10)};
         query_any_list_free(al);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TYPE)) {
-        ani_res.type = calloc(strlen(fields->field)+1, 1);
-        strcpy(ani_res.type, fields->field);
+        ani_res->type = calloc(strlen(fields->field)+1, 1);
+        strcpy(ani_res->type, fields->field);
         NEXT(fields);  
     }
     if (ISSET(iamask, QUERY_FLAG_RELATED_AID_LIST)) {
-        ani_res.related_aid_list = (struct id_list*)query_any_list_parser(fields->field, "\'");
+        ani_res->related_aid_list = (struct id_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     } 
     if (ISSET(iamask, QUERY_FLAG_RELATED_AID_TYPE)) {
-        ani_res.related_aid_type = (struct id_list*)query_any_list_parser(fields->field, "\'");
+        ani_res->related_aid_type = (struct id_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_ROMANJI_NAME)) {
-        ani_res.romanji_name = calloc(strlen(fields->field) + 1, 1);
-        strcpy(ani_res.romanji_name, fields->field);
+        ani_res->romanji_name = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res->romanji_name, fields->field);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_KANJI_NAME)) {
-        ani_res.kanji_name = calloc(wcslen((wchar_t*)fields->field) + 1, sizeof (wchar_t));
-        wcscpy(ani_res.kanji_name, (wchar_t*)fields->field);
+        ani_res->kanji_name = calloc(wcslen((wchar_t*)fields->field) + 1, sizeof (wchar_t));
+        wcscpy(ani_res->kanji_name, (wchar_t*)fields->field);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ENGLISH_NAME)) {
-        ani_res.english_name = calloc(strlen(fields->field) + 1, 1);
-        strcpy(ani_res.english_name, fields->field);
+        ani_res->english_name = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res->english_name, fields->field);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_SHORT_NAME_LIST)) {
-        ani_res.short_name_list = (struct name_list*)query_any_list_parser(fields->field, "\'");
+        ani_res->short_name_list = (struct name_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_SYN_NAME_LIST)) {
-        ani_res.syn_name_list = (struct name_list*)query_any_list_parser(fields->field, "\'");
+        ani_res->syn_name_list = (struct name_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_EPISODES)) {
-        ani_res.episodes = strtol(fields->field, NULL, 10);
+        ani_res->episodes = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_HIGHEST_EP_NUM)) {
-        ani_res.highest_episode_number = strtol(fields->field, NULL, 10);
+        ani_res->highest_episode_number = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_SPECIAL_EP_CNT)) {
-        ani_res.special_ep_count = strtol(fields->field, NULL, 10);
+        ani_res->special_ep_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_AIRDATE)) {
-        ani_res.air_date = strtol(fields->field, NULL, 10);
+        ani_res->air_date = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ENDDATE)) {
-        ani_res.end_date = strtol(fields->field, NULL, 10);
+        ani_res->end_date = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_URL)) {
-        ani_res.url = calloc(strlen(fields->field) + 1, 1);
-        strcpy(ani_res.url, fields->field);
+        ani_res->url = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res->url, fields->field);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_PICNAME)) {
-        ani_res.pic_name = calloc(strlen(fields->field) + 1, 1);
-        strcpy(ani_res.pic_name, fields->field);
+        ani_res->pic_name = calloc(strlen(fields->field) + 1, 1);
+        strcpy(ani_res->pic_name, fields->field);
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_RATINGS)) {
-        ani_res.ratings = strtol(fields->field, NULL, 10);
+        ani_res->ratings = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_VOTE_CNT)) {
-        ani_res.vote_count = strtol(fields->field, NULL, 10);
+        ani_res->vote_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TMP_RATING)) {
-        ani_res.temp_rating = strtol(fields->field, NULL, 10);
+        ani_res->temp_rating = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_AVG_REVIEW_RATING)) {
-        ani_res.average_review_rating = strtol(fields->field, NULL, 10);
+        ani_res->average_review_rating = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_REVIEW_CNT)) {
-        ani_res.review_count = strtol(fields->field, NULL, 10);
+        ani_res->review_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_AWARD_LIST)) {
-        ani_res.awards = (struct award_list*)query_any_list_parser(fields->field, "\'");
+        ani_res->awards = (struct award_list*)query_any_list_parser(fields->field, "\'");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_IS_NSFW)) {
-        ani_res.is_nsfw = strtol(fields->field, NULL, 10);
+        ani_res->is_nsfw = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_ANN_ID)) {
-        ani_res.ANNid = strtol(fields->field, NULL, 10);
+        ani_res->ANNid = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ALL_CINEMA_ID)) {
-        (void)ani_res.allcinema_id;
+        (void)ani_res->allcinema_id;
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_ANIME_NFO)) {
@@ -363,45 +379,45 @@ retry:
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_NAME_LIST)) {
-        ani_res.tags = (struct tags*)query_any_list_parser(fields->field, ",");
+        ani_res->tags = (struct tags*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_ID_LIST)) {
-        ani_res.tag_ids = (struct id_list*)query_any_list_parser(fields->field, ",");
+        ani_res->tag_ids = (struct id_list*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TAG_WEIGHT_LIST)) {
-        ani_res.tag_weight_list = (struct weight_list*)query_any_list_parser(fields->field, ",");
+        ani_res->tag_weight_list = (struct weight_list*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_DATE_RECORD_UPDATED)) {
-        ani_res.date_record_updated = strtol(fields->field, NULL, 10);
+        ani_res->date_record_updated = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_CHARACTER_ID_LIST)) {
-        ani_res.character_id_list = (struct id_list*)query_any_list_parser(fields->field, ",");
+        ani_res->character_id_list = (struct id_list*)query_any_list_parser(fields->field, ",");
         NEXT(fields);
     }
 
     if (ISSET(iamask, QUERY_FLAG_SPECIALS_CNT)) {
-        ani_res.specials_count = strtol(fields->field, NULL, 10);
+        ani_res->specials_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_CREDITS_CNT)) {
-        ani_res.credits_count = strtol(fields->field, NULL, 10);;
+        ani_res->credits_count = strtol(fields->field, NULL, 10);;
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_OTHER_CNT)) {
-        ani_res.others_count = strtol(fields->field, NULL, 10);
+        ani_res->others_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_TRAILER_CNT)) {
-        ani_res.trailers_count = strtol(fields->field, NULL, 10);;
+        ani_res->trailers_count = strtol(fields->field, NULL, 10);;
         NEXT(fields);
     }
     if (ISSET(iamask, QUERY_FLAG_PARODY_CNT)) {
-        ani_res.parodies_count = strtol(fields->field, NULL, 10);
+        ani_res->parodies_count = strtol(fields->field, NULL, 10);
         NEXT(fields);
     }
     
@@ -426,6 +442,7 @@ void query_anidb_response_free(anidb_response* ani_res) {
     query_any_list_free((struct any_list*)ani_res->tag_ids);
     query_any_list_free((struct any_list*)ani_res->tag_weight_list);
     query_any_list_free((struct any_list*)ani_res->character_id_list);
+    free(ani_res);
 }
 
 void            query_free(QueryObject* qobj) {
