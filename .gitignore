@@ -5,3 +5,4 @@ build
 discord/storage/*
 discord/data/*
 .env
+__pycache__
