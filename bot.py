@@ -8,6 +8,7 @@ from discord.ext.commands import Bot
 from dotenv import load_dotenv
 import asyncio
 import json
+import random
 
 from discord.image.downloadImage import downloadImage
 from discord.compare.comparehis import comparehis
@@ -15,6 +16,7 @@ from discord.compare.comparehis import comparehis
 
 from discord.count.count_func import call_count
 from discord.count.last_week import recent
+from discord.count.all_time import forever
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -70,7 +72,7 @@ async def add(ctx, name, url):
     for ext in pic_ext:
         if url.endswith(ext):
             await ctx.send('picture')
-            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(name,url))
+            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(name, url))
             run = True
             break
     
@@ -101,8 +103,8 @@ async def source(ctx, url):
             embed.add_field(name="Episode", value=info["QUERY_FLAG_EPISODES"], inline=False)
             embed.add_field(name="Ratings", value=info["QUERY_FLAG_RATINGS"], inline=False)
             embed.add_field(name="Tags", value=info["QUERY_FLAG_TAG_NAME_LIST"].replace(",",", "),inline=False)
-            embed.add_field(name="\a", value= '\a')
-            embed.add_field(name="Best matched", value= '\a', inline=False)
+            embed.add_field(name="\u200B", value= '\u200B')
+            embed.add_field(name="Best matched", value= '\u200B', inline=False)
             embed.set_image(url="attachment://"+"image"+"."+source_path.split(".")[-1])
             await ctx.send(file=file,embed=embed)
             run = True
@@ -113,14 +115,59 @@ async def source(ctx, url):
 
 @bot.command(name='top')
 async def top(ctx):
-    anime_list = json.load(open('data/frequency.json', 'r'))
-    top = sorted(anime_list.items(), key=lambda x: x[1], reverse=True)
-    for x in top:
-        await ctx.send(f'{x}')
+
+    tempDict = forever()
+    embed = discord.Embed(title="Top 5 anime",
+                          description='All time top five of the anime being asked for the source in t!source',
+                          colour=discord.Color.red()
+                          )
+
+                    #icon_url='https://pbs.twimg.com/media/DcEu95UWAAIvoWP.png')
+    # embed.set_image(url='https://pbs.twimg.com/media/DcEu9_wW0AAE2VK.png')
+    embed.set_thumbnail(url='https://pbs.twimg.com/media/DcEu9_bXcAAQ-Cv.png')
+
+
+    embed.add_field(name="First Place!  :first_place:", value=(f"Name: {tempDict[0][0]} Score: {tempDict[0][1]}"))
+    embed.add_field(name="Second Place!  :second_place: ", value=(f"Name: {tempDict[1][0]} Score: {tempDict[1][1]}"), inline=False)
+    embed.add_field(name="Third Place!  :third_place: ", value=(f"Name: {tempDict[2][0]} Score:{tempDict[2][1]}"), inline=False)
+    embed.add_field(name="Fourth Place!  :medal: ", value=(f"Name: {tempDict[3][0]} Score:{tempDict[3][1]}"), inline=False)
+    embed.add_field(name="Fifth Place!  :rosette: ", value=(f"Name: {tempDict[4][0]} Score:{tempDict[4][1]}"), inline=False)
+
+    await ctx.send(embed=embed)
 
 @bot.command(name='weekly')
 async def weekly(ctx):
-    for x in recent():
-        await ctx.send(f'{x}')
+    temp = recent()
+    embed = discord.Embed(title="Weekly top 5 anime",
+                          description='This week top five of the anime being asked for the source in t!source',
+                          colour=discord.Color.red()
+                          )
+
+                     #icon_url='https://pbs.twimg.com/media/DcEu95UWAAIvoWP.png')
+    # embed.set_image(url='https://pbs.twimg.com/media/DcEu9_wW0AAE2VK.png')
+    embed.set_thumbnail(url='https://pbs.twimg.com/media/DcEu9_bXcAAQ-Cv.png')
+
+    embed.add_field(name="First Place!  :first_place:", value=( f"Name: {temp[0][0]} Score: {temp[0][1]}"))
+    embed.add_field(name="Second Place!  :second_place:", value=(f"Name: {temp[1][0]} Score: {temp[1][1]}"), inline=False)
+    embed.add_field(name="Third Place!  :third_place:", value=(f"Name: {temp[2][0]} Score:{temp[2][1]}"), inline=False)
+    embed.add_field(name="Fourth Place!  :medal:", value=(f"Name: {temp[3][0]} Score:{temp[3][1]}"), inline=False)
+    embed.add_field(name="Fifth Place!  :rosette:", value=(f"Name: {temp[4][0]} Score:{temp[4][1]}"), inline=False)
+
+
+    await ctx.send(embed=embed)
+
+@bot.command(name="rec")
+async def rec(ctx,tag1,tag2):
+    temp = []
+    tag_list = json.load(open('../Trace/discord/data/label.json', 'r'))
+    for title in tag_list.keys():
+        if tag1 in tag_list[title] and tag2 in tag_list[title]:
+            temp.append(title)
+
+    await ctx.send(random.choice(temp))
+
+
+
+
 
 bot.run(TOKEN)

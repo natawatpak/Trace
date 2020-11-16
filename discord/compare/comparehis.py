@@ -15,7 +15,7 @@ def comparehis (url):
     query=imagetohis(url)
 
     min = 1000
-    for story in glob.glob("../discord/data/*"):
+    for story in glob.glob("../Trace/discord/data/*"):
         if not story.endswith(".json"):
             for his_Path in glob.glob(story+"/frames_txt/*"):
                     comhis = np.loadtxt(his_Path)

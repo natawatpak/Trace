@@ -1,0 +1,10 @@
+{
+ "Anime":["comedy", "drama", "historical"],
+  "AnimeA" : ["horror", "thriller", "drama"],
+  "AnimeB" :["sci-fi", "slice-of-life", "drama"],
+  "AnimeC" : ["comedy", "action", "sci-fi"],
+  "AnimeD" : ["action","comedy","gore"],
+  "AnimeE": ["slice-of-life", "drama", "thriller","comedy"]
+
+
+}

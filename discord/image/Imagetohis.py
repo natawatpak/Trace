@@ -18,8 +18,8 @@ def imagetohis(url):
     
     resp = requests.get(url, stream=True).raw
     image = np.asarray(bytearray(resp.read()), dtype="uint8")
+
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-    
     hist = cv2.calcHist([image], [0, 1, 2], None, [8, 8, 8],[0, 256, 0, 256, 0, 256])
     hist = cv2.normalize(hist, hist).flatten()
 
