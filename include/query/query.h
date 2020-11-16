@@ -92,14 +92,17 @@ typedef struct __internal_req_field {
     char           _session[ANIDB_NSESSION + 1];
     char           _buffer[ANIDB_NREAD];
     int            _sfd, _r;
+    char           session_loc[MAX_SESSION_LEN];
 }QueryObject;
 
 QueryObject*    query_new(const char* username, const char* password, const char* client, const char* clientver); /* avoid calling query_init directly */
 QueryObject*    query_init(QueryObject* qobj, const char* username, const char* password, const char* client, const char* clientver);
 QueryObject*    query_establish_connection(QueryObject* qobj);
 const char*     query_refresh_session(QueryObject* qobj);
+void            query_save_session(QueryObject* qobj);
+void            query_enable_session_cache(QueryObject* qobj, const char* location);
 anidb_response  query_by_name(QueryObject* qobj, const char* aname, const char* amask);
-anidb_response  query_by_id(QueryObject* qobj, int aid, const char* amask);
+anidb_response* query_by_id(QueryObject* qobj, int aid, const char* amask);
 void            query_free(QueryObject* qobj);
 void            query_anidb_response_free(anidb_response* ani_res);
 
