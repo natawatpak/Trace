@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import asyncio
 import json
 import random
+import glob
 
 from discord.image.downloadImage import downloadImage
 from discord.compare.comparehis import comparehis
@@ -72,7 +73,7 @@ async def add(ctx, name, url):
     for ext in pic_ext:
         if url.endswith(ext):
             await ctx.send('picture')
-            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(name, url))
+            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(name,url))
             run = True
             break
     
@@ -92,7 +93,8 @@ async def source(ctx, url):
             _,name= os.path.split(d)
             call_count(name)
             await ctx.send(str(ctx.author.mention)+" \n"+ name)
-            info = json.load(open(d+'/meta.json', 'r'))
+            for file in glob.glob(d+'/*.json'):
+                info = json.load(open(file, 'r'))
             file = discord.File(source_path, filename= "image"+"."+source_path.split(".")[-1])
             print(source_path.split(".")[-1])
             embed = discord.Embed(
@@ -165,9 +167,5 @@ async def rec(ctx,tag1,tag2):
             temp.append(title)
 
     await ctx.send(random.choice(temp))
-
-
-
-
 
 bot.run(TOKEN)

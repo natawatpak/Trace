@@ -24,7 +24,6 @@ def comparehis (url):
                         story_path = story
                         _,name = os.path.split(his_Path)
                 #print(min)
-    print(story_path)
     for img_Path in glob.glob(story_path+"/frames/"+name.split(".")[0] + ".*"):
         print(img_Path)
         return img_Path
