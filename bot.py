@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 import asyncio
 import json
 import random
-import glob
 
 from discord.image.downloadImage import downloadImage
 from discord.compare.comparehis import comparehis
@@ -73,7 +72,7 @@ async def add(ctx, name, url):
     for ext in pic_ext:
         if url.endswith(ext):
             await ctx.send('picture')
-            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(name,url))
+            await ctx.send(str(ctx.author.mention)+" \n"+ downloadImage(name, url))
             run = True
             break
     
@@ -93,8 +92,7 @@ async def source(ctx, url):
             _,name= os.path.split(d)
             call_count(name)
             await ctx.send(str(ctx.author.mention)+" \n"+ name)
-            for file in glob.glob(d+'/*.json'):
-                info = json.load(open(file, 'r'))
+            info = json.load(open(d+'/metadata.json', 'r'))
             file = discord.File(source_path, filename= "image"+"."+source_path.split(".")[-1])
             print(source_path.split(".")[-1])
             embed = discord.Embed(
@@ -119,44 +117,62 @@ async def source(ctx, url):
 async def top(ctx):
 
     tempDict = forever()
-    embed = discord.Embed(title="Top 5 anime",
-                          description='All time top five of the anime being asked for the source in t!source',
+    if len(tempDict) ==0:
+        await ctx.send("no anime asked for source right now!")
+        return
+    place = ["First place","Second place", "Third place","Fourth place", "Fifth place"]
+    sticker = [":first_place:",":second_place:",":third_place:",":medal:","rosette:"]
+
+    embed = discord.Embed(title=f"Top {len(tempDict) if len(tempDict)<5 else 5} of all time",
+                          description=f'All time top {len(tempDict) if len(tempDict)<5 else 5} of the anime being asked for the source in t!source',
                           colour=discord.Color.red()
                           )
 
-                    #icon_url='https://pbs.twimg.com/media/DcEu95UWAAIvoWP.png')
-    # embed.set_image(url='https://pbs.twimg.com/media/DcEu9_wW0AAE2VK.png')
     embed.set_thumbnail(url='https://pbs.twimg.com/media/DcEu9_bXcAAQ-Cv.png')
+    isFirst=True
+    for index, value in enumerate(tempDict):
+        if index != 0:
+            isFirst = False
 
+        if index <5:
+            embed.add_field(name= place[index]  + sticker[index],
+                            value=(f"Name: {tempDict[index][0]} Score: {tempDict[index][1]}"), inline=isFirst)
+        else:
+            break
 
-    embed.add_field(name="First Place!  :first_place:", value=(f"Name: {tempDict[0][0]} Score: {tempDict[0][1]}"))
-    embed.add_field(name="Second Place!  :second_place: ", value=(f"Name: {tempDict[1][0]} Score: {tempDict[1][1]}"), inline=False)
-    embed.add_field(name="Third Place!  :third_place: ", value=(f"Name: {tempDict[2][0]} Score:{tempDict[2][1]}"), inline=False)
-    embed.add_field(name="Fourth Place!  :medal: ", value=(f"Name: {tempDict[3][0]} Score:{tempDict[3][1]}"), inline=False)
-    embed.add_field(name="Fifth Place!  :rosette: ", value=(f"Name: {tempDict[4][0]} Score:{tempDict[4][1]}"), inline=False)
 
     await ctx.send(embed=embed)
+
 
 @bot.command(name='weekly')
 async def weekly(ctx):
     temp = recent()
-    embed = discord.Embed(title="Weekly top 5 anime",
-                          description='This week top five of the anime being asked for the source in t!source',
+    if len(temp) ==0:
+        await ctx.send("no anime asked for source right now!")
+        return
+
+    place = ["First place", "Second place", "Third place", "Fourth place", "Fifth place"]
+    sticker = [":first_place:", ":second_place:", ":third_place:", ":medal:", "rosette:"]
+    embed = discord.Embed(title=f"Weekly top {len(temp) if len(temp)<5 else 5} anime",
+                          description=f'This week top {len(temp) if len(temp)<5 else 5} of the anime being asked for the source in t!source',
                           colour=discord.Color.red()
                           )
 
-                     #icon_url='https://pbs.twimg.com/media/DcEu95UWAAIvoWP.png')
-    # embed.set_image(url='https://pbs.twimg.com/media/DcEu9_wW0AAE2VK.png')
     embed.set_thumbnail(url='https://pbs.twimg.com/media/DcEu9_bXcAAQ-Cv.png')
 
-    embed.add_field(name="First Place!  :first_place:", value=( f"Name: {temp[0][0]} Score: {temp[0][1]}"))
-    embed.add_field(name="Second Place!  :second_place:", value=(f"Name: {temp[1][0]} Score: {temp[1][1]}"), inline=False)
-    embed.add_field(name="Third Place!  :third_place:", value=(f"Name: {temp[2][0]} Score:{temp[2][1]}"), inline=False)
-    embed.add_field(name="Fourth Place!  :medal:", value=(f"Name: {temp[3][0]} Score:{temp[3][1]}"), inline=False)
-    embed.add_field(name="Fifth Place!  :rosette:", value=(f"Name: {temp[4][0]} Score:{temp[4][1]}"), inline=False)
+    isFirst = True
+    for index, value in enumerate(temp):
+        if index != 0:
+            isFirst = False
 
+        if index < 5:
+            embed.add_field(name=place[index] + sticker[index],
+                            value=(f"Name: {temp[index][0]} Score: {temp[index][1]}"), inline=isFirst)
+        else:
+            break
 
     await ctx.send(embed=embed)
+
 
 @bot.command(name="rec")
 async def rec(ctx,tag1,tag2):
@@ -167,5 +183,9 @@ async def rec(ctx,tag1,tag2):
             temp.append(title)
 
     await ctx.send(random.choice(temp))
+
+
+
+
 
 bot.run(TOKEN)
